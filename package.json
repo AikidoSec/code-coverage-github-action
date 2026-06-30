@@ -1,0 +1,41 @@
+{
+  "name": "code-coverage-github-action",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GitHub Action that collects an LCOV code coverage report and uploads it to Aikido.",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "ncc build src/main.js -o dist --source-map --license licenses.txt",
+    "lint": "eslint src __tests__",
+    "format": "prettier --write \"**/*.js\"",
+    "format:check": "prettier --check \"**/*.js\"",
+    "test": "jest",
+    "local": "local-action . src/main.js .env",
+    "all": "npm run format && npm run lint && npm run test && npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AikidoSec/code-coverage-github-action.git"
+  },
+  "keywords": [
+    "actions",
+    "aikido",
+    "code-coverage",
+    "lcov",
+    "security"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "@actions/glob": "^0.5.0",
+    "@actions/http-client": "^2.2.3",
+    "@actions/io": "^2.0.0"
+  },
+  "devDependencies": {
+    "@github/local-action": "^6.0.0",
+    "@vercel/ncc": "^0.38.3",
+    "eslint": "^8.57.1",
+    "jest": "^29.7.0",
+    "prettier": "^3.3.3"
+  }
+}
