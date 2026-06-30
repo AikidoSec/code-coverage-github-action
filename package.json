@@ -32,7 +32,7 @@
     "@actions/io": "^2.0.0"
   },
   "devDependencies": {
-    "@github/local-action": "^6.0.0",
+    "@github/local-action": "^7.0.1",
     "@vercel/ncc": "^0.38.3",
     "eslint": "^8.57.1",
     "jest": "^29.7.0",
