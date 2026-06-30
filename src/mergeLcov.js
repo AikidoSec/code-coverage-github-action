@@ -12,10 +12,6 @@ async function mergeLcov(paths) {
   for (const inputPath of paths) {
     const resolvedPath = path.resolve(inputPath);
 
-    if (path.isAbsolute(inputPath) && inputPath.includes('..')) {
-      throw new Error('Invalid file path');
-    }
-
     if (inputPath.includes('..') || path.isAbsolute(inputPath)) {
       throw new Error('Invalid file path');
     }
