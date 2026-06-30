@@ -1,0 +1,22 @@
+name: 'Aikido Code Coverage'
+description: 'Collect an LCOV code coverage report and upload it to Aikido.'
+author: 'Aikido Security'
+branding:
+  icon: 'shield'
+  color: 'purple'
+
+inputs:
+  aikido-ci-token:
+    description: 'Aikido CI API token. Store it as a repository secret.'
+    required: true
+  lcov-file-paths:
+    description: 'Path(s) to the LCOV coverage report(s). Separate multiple entries with newlines'
+    required: true
+  fail-on-error:
+    description: 'Fail the action if discovery or upload fails. Set to false to warn instead.'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
