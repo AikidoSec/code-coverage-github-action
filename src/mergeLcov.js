@@ -10,7 +10,17 @@ async function mergeLcov(paths) {
   const coverageBySource = new Map();
 
   for (const inputPath of paths) {
-    const content = await fs.readFile(inputPath, 'utf8');
+    const resolvedPath = path.resolve(inputPath);
+
+    if (path.isAbsolute(inputPath) && inputPath.includes('..')) {
+      throw new Error('Invalid file path');
+    }
+
+    if (inputPath.includes('..') || path.isAbsolute(inputPath)) {
+      throw new Error('Invalid file path');
+    }
+
+    const content = await fs.readFile(resolvedPath, 'utf8');
     parseIntoMap(content, coverageBySource);
   }
 
