@@ -117,6 +117,25 @@ Set `ACTIONS_STEP_DEBUG=true` in `.env` (already enabled in `.env.example`) for 
 
 A launch configuration is included at `.vscode/launch.json`. Open the **Run and Debug** panel, select **Debug Local Action**, and start debugging. Breakpoints in `src/` will be hit when the action runs.
 
+## Releasing
+
+Releases are automated. Pushing a version tag triggers the [Release workflow](.github/workflows/release.yml), which builds the action, verifies `dist/` is up to date, and creates a GitHub Release.
+
+### Create and push a tag
+
+Use [semantic versioning](https://semver.org/) tags prefixed with `v`:
+
+```bash
+git checkout main
+git pull
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The workflow runs on any tag matching `v*` (for example `v1.0.0` or `v1.0.1`).
+
+After the workflow succeeds, the release appears on GitHub. Workflows can pin the action to a major version (`@v1`), a specific release (`@v1.0.0`), or a branch (`@main`).
+
 ## Project layout
 
 ```
