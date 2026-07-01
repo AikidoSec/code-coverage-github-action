@@ -6,7 +6,7 @@ For usage in workflows, see [README.md](./README.md).
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) 20 or later (matches `node20` in `action.yml`)
+- [Node.js](https://nodejs.org/) 24 or later (matches `node24` in `action.yml`)
 - npm
 
 ## Setup
@@ -33,8 +33,6 @@ Before opening a pull request, run the full check:
 ```bash
 npm run all
 ```
-
-CI also verifies that `dist/` is up to date after `npm run build`. If you change source files, rebuild and commit the updated `dist/` output.
 
 ## Local action testing
 
@@ -119,7 +117,7 @@ A launch configuration is included at `.vscode/launch.json`. Open the **Run and 
 
 ## Releasing
 
-Releases are automated. Pushing a version tag triggers the [Release workflow](.github/workflows/release.yml), which builds the action, verifies `dist/` is up to date, and creates a GitHub Release.
+Releases are automated. Pushing a version tag triggers the [Release workflow](.github/workflows/release.yml), which runs tests, bundles `dist/`, commits the bundle to the release tag, and creates a GitHub Release.
 
 ### Create and push a tag
 
@@ -134,7 +132,11 @@ git push origin v1.0.0
 
 The workflow runs on any tag matching `v*` (for example `v1.0.0` or `v1.0.1`).
 
-After the workflow succeeds, the release appears on GitHub. Workflows can pin the action to a major version (`@v1`), a specific release (`@v1.0.0`), or a branch (`@main`).
+Wait for the workflow to finish. It rebuilds `dist/`, commits it, and moves the version tag to that commit before creating the GitHub Release. Only then is the tag ready to use — pin consumers to the exact version (for example `AikidoSec/code-coverage-github-action@v1.0.0`), not `@main`.
+
+### Publish to GitHub Marketplace
+
+Publishing to GitHub Marketplace is a manual step in the GitHub UI. The release workflow does not do this for you. Follow the steps in the [GitHub docs](https://docs.github.com/en/actions/how-tos/create-and-publish-actions/publish-in-github-marketplace#publishing-an-action).
 
 ## Project layout
 
