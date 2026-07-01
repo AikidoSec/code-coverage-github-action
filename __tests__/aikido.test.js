@@ -1,4 +1,16 @@
+import { jest } from '@jest/globals';
+
 const mockPostJson = jest.fn();
+const mockHttpClient = jest.fn();
+
+jest.unstable_mockModule('@actions/http-client', () => ({
+  HttpClient: mockHttpClient,
+  HttpCodes: {
+    OK: 200,
+  },
+}));
+
+const { uploadCoverage } = await import('../src/aikido.js');
 
 class HttpClientError extends Error {
   constructor(message, statusCode, result) {
@@ -9,22 +21,6 @@ class HttpClientError extends Error {
   }
 }
 
-jest.mock('@actions/http-client', () => ({
-  HttpClient: jest.fn().mockImplementation(() => ({
-    postJson: mockPostJson,
-  })),
-  HttpCodes: {
-    OK: 200,
-  },
-}));
-
-jest.mock('@actions/core', () => ({
-  info: jest.fn(),
-}));
-
-const { HttpClient } = require('@actions/http-client');
-const { uploadCoverage } = require('../src/aikido');
-
 describe('uploadCoverage', () => {
   const lcovFileContent = 'TN:\nSF:a\nend_of_record\n';
   const token = 'secret-token';
@@ -34,6 +30,9 @@ describe('uploadCoverage', () => {
     process.env.GITHUB_SHA = 'abc123';
     process.env.GITHUB_REF_NAME = 'main';
     delete process.env.DEVELOPMENT;
+    mockHttpClient.mockImplementation(() => ({
+      postJson: mockPostJson,
+    }));
     mockPostJson.mockResolvedValue({ statusCode: 200, result: { success: true } });
   });
 
@@ -41,7 +40,7 @@ describe('uploadCoverage', () => {
     const result = await uploadCoverage(lcovFileContent, token);
 
     expect(result).toEqual({ success: true });
-    expect(HttpClient).toHaveBeenCalledWith('aikido-code-coverage', [], {
+    expect(mockHttpClient).toHaveBeenCalledWith('aikido-code-coverage', [], {
       headers: {
         'X-AIK-API-SECRET': 'secret-token',
         'Content-Type': 'application/json',
@@ -88,7 +87,8 @@ describe('uploadCoverage', () => {
   });
 
   it('throws with reason_phrase when the API returns that format', async () => {
-    const reasonPhrase = "No repository exists with the provided name: 'code-coverage-github-action'";
+    const reasonPhrase =
+      "No repository exists with the provided name: 'code-coverage-github-action'";
     mockPostJson.mockRejectedValue(
       new HttpClientError(JSON.stringify({ status_code: 400, reason_phrase: reasonPhrase }), 400, {
         status_code: 400,

@@ -1,10 +1,9 @@
-const core = require('@actions/core');
+import * as core from '@actions/core';
 
 /**
  * Read and validate the action inputs.
  */
-
-function readInputs() {
+export function readInputs() {
   const aikidoCiToken = core.getInput('aikido-ci-token', {
     required: true,
     trimWhitespace: true,
@@ -25,4 +24,3 @@ function readInputs() {
     failOnError,
   };
 }
-module.exports = { readInputs };

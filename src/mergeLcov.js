@@ -2,11 +2,11 @@
 // monorepos and sharded CI jobs often emit separate reports for the same source path
 // (SF:). We group by path and sum per-line/function/branch hit counts so one record
 // per file reflects combined coverage across all inputs.
-const { promises: fs } = require('fs');
-const os = require('os');
-const path = require('path');
+import { promises as fs } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
-async function mergeLcov(paths) {
+export async function mergeLcov(paths) {
   const coverageBySource = new Map();
 
   for (const inputPath of paths) {
@@ -186,7 +186,3 @@ function fileCoverageToLcov(coverage) {
   lines.push(`LF:${coverage.lines.size}`, `LH:${linesHit}`, 'end_of_record');
   return lines.join('\n');
 }
-
-module.exports = {
-  mergeLcov,
-};

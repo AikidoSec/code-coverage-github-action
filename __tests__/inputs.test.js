@@ -1,7 +1,14 @@
-jest.mock('@actions/core');
+import { jest } from '@jest/globals';
 
-const core = require('@actions/core');
-const { readInputs } = require('../src/inputs');
+const mockGetInput = jest.fn();
+const mockGetBooleanInput = jest.fn();
+
+jest.unstable_mockModule('@actions/core', () => ({
+  getInput: mockGetInput,
+  getBooleanInput: mockGetBooleanInput,
+}));
+
+const { readInputs } = await import('../src/inputs.js');
 
 describe('readInputs', () => {
   const originalEnv = process.env;
@@ -14,14 +21,14 @@ describe('readInputs', () => {
       GITHUB_REF_NAME: 'main',
     };
 
-    core.getInput.mockImplementation((name) => {
+    mockGetInput.mockImplementation((name) => {
       const values = {
         'aikido-ci-token': 'secret-token',
         'lcov-file-paths': 'coverage/lcov.info',
       };
       return values[name] ?? '';
     });
-    core.getBooleanInput.mockReturnValue(true);
+    mockGetBooleanInput.mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -37,7 +44,7 @@ describe('readInputs', () => {
   });
 
   it('parses multiple lcov file paths from a multiline input', () => {
-    core.getInput.mockImplementation((name) => {
+    mockGetInput.mockImplementation((name) => {
       const values = {
         'aikido-ci-token': 'secret-token',
         'lcov-file-paths': 'packages/a/coverage/lcov.info\npackages/b/coverage/lcov.info',
@@ -53,7 +60,7 @@ describe('readInputs', () => {
   });
 
   it('parses multiple lcov file paths from a comma-separated input', () => {
-    core.getInput.mockImplementation((name) => {
+    mockGetInput.mockImplementation((name) => {
       const values = {
         'aikido-ci-token': 'secret-token',
         'lcov-file-paths': 'packages/a/coverage/lcov.info,packages/b/coverage/lcov.info',
@@ -69,7 +76,7 @@ describe('readInputs', () => {
   });
 
   it('parses multiple lcov file paths from a space-separated input', () => {
-    core.getInput.mockImplementation((name) => {
+    mockGetInput.mockImplementation((name) => {
       const values = {
         'aikido-ci-token': 'secret-token',
         'lcov-file-paths': 'packages/a/coverage/lcov.info packages/b/coverage/lcov.info',
@@ -87,14 +94,14 @@ describe('readInputs', () => {
   it('requests required inputs with trimWhitespace', () => {
     readInputs();
 
-    expect(core.getInput).toHaveBeenCalledWith('aikido-ci-token', {
+    expect(mockGetInput).toHaveBeenCalledWith('aikido-ci-token', {
       required: true,
       trimWhitespace: true,
     });
-    expect(core.getInput).toHaveBeenCalledWith('lcov-file-paths', {
+    expect(mockGetInput).toHaveBeenCalledWith('lcov-file-paths', {
       required: true,
       trimWhitespace: true,
     });
-    expect(core.getBooleanInput).toHaveBeenCalledWith('fail-on-error');
+    expect(mockGetBooleanInput).toHaveBeenCalledWith('fail-on-error');
   });
 });

@@ -1,4 +1,4 @@
-const { HttpClient, HttpCodes } = require('@actions/http-client');
+import { HttpClient, HttpCodes } from '@actions/http-client';
 
 const BASE_URL = process.env.DEVELOPMENT ? 'https://app.test.aikido.dev' : 'https://app.aikido.dev';
 
@@ -12,7 +12,7 @@ function formatRequestError(statusCode, result) {
 /**
  * Upload a coverage payload to Aikido.
  */
-async function uploadCoverage(lcovFileContent, token) {
+export async function uploadCoverage(lcovFileContent, token) {
   const client = new HttpClient('aikido-code-coverage', [], {
     headers: {
       'X-AIK-API-SECRET': token,
@@ -54,5 +54,3 @@ function parseErrorBody(message) {
     return undefined;
   }
 }
-
-module.exports = { uploadCoverage };

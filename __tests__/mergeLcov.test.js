@@ -1,7 +1,7 @@
-const fs = require('fs').promises;
-const os = require('os');
-const path = require('path');
-const { mergeLcov } = require('../src/mergeLcov');
+import { promises as fs } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { mergeLcov } from '../src/mergeLcov.js';
 
 const SAMPLE = `SF:src/a.js
 DA:1,3
@@ -34,14 +34,20 @@ describe('mergeLcov', () => {
   });
 
   async function readMerged(paths) {
-    const mergedPath = await mergeLcov(paths);
-    mergedDirs.push(path.dirname(mergedPath));
-    return fs.readFile(mergedPath, 'utf8');
+    const previousCwd = process.cwd();
+    process.chdir(tmpDir);
+    try {
+      const mergedPath = await mergeLcov(paths);
+      mergedDirs.push(path.dirname(mergedPath));
+      return fs.readFile(mergedPath, 'utf8');
+    } finally {
+      process.chdir(previousCwd);
+    }
   }
 
   it('preserves a single input file', async () => {
-    const input = await writeLcovFile(tmpDir, 'single.lcov', SAMPLE);
-    const merged = await readMerged([input]);
+    await writeLcovFile(tmpDir, 'single.lcov', SAMPLE);
+    const merged = await readMerged(['single.lcov']);
 
     expect(merged).toContain('DA:1,3');
     expect(merged).toContain('DA:2,0');
@@ -65,9 +71,9 @@ DA:1,1
 end_of_record
 `;
 
-    const input1 = await writeLcovFile(tmpDir, 'job1.lcov', job1);
-    const input2 = await writeLcovFile(tmpDir, 'job2.lcov', job2);
-    const merged = await readMerged([input1, input2]);
+    await writeLcovFile(tmpDir, 'job1.lcov', job1);
+    await writeLcovFile(tmpDir, 'job2.lcov', job2);
+    const merged = await readMerged(['job1.lcov', 'job2.lcov']);
 
     expect(merged).toContain('DA:10,7');
     expect(merged).toContain('DA:11,0');

@@ -1,8 +1,8 @@
-const fs = require('fs').promises;
-const core = require('@actions/core');
-const { readInputs } = require('./inputs');
-const { mergeLcov } = require('./mergeLcov');
-const { uploadCoverage } = require('./aikido');
+import { promises as fs } from 'node:fs';
+import * as core from '@actions/core';
+import { readInputs } from './inputs.js';
+import { mergeLcov } from './mergeLcov.js';
+import { uploadCoverage } from './aikido.js';
 
 async function run() {
   let failOnError = true;
@@ -38,6 +38,6 @@ async function run() {
   }
 }
 
-module.exports = { run };
+export { run };
 
 run();
