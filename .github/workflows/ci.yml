@@ -1,8 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
 
 jobs:
@@ -34,11 +32,3 @@ jobs:
 
       - name: Build
         run: npm run build
-
-      - name: Verify dist/ is up to date
-        run: |
-          if [ -n "$(git status --porcelain dist)" ]; then
-            echo "::error::dist/ is out of date. Run 'npm run build' and commit the result."
-            git diff --stat dist
-            exit 1
-          fi
