@@ -7,8 +7,12 @@ branding:
 
 inputs:
   aikido-ci-token:
-    description: 'Aikido CI API token. Store it as a repository secret.'
-    required: true
+    description: 'Aikido CI API token. Store it as a repository secret. Mutually exclusive with use-oidc.'
+    required: false
+  use-oidc:
+    description: 'Authenticate keylessly with GitHub OIDC instead of a token. Requires permissions: id-token: write.'
+    required: false
+    default: 'false'
   lcov-file-paths:
     description: 'Path(s) to the LCOV coverage report(s). Separate multiple entries with newlines'
     required: true

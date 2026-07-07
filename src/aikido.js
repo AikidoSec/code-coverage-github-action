@@ -1,6 +1,8 @@
+import * as core from '@actions/core';
 import { HttpClient, HttpCodes } from '@actions/http-client';
 
 const BASE_URL = process.env.DEVELOPMENT ? 'https://app.test.aikido.dev' : 'https://app.aikido.dev';
+const OIDC_AUDIENCE = BASE_URL;
 
 function formatRequestError(statusCode, result) {
   const detail = result?.reason_phrase ?? result?.message;
@@ -10,12 +12,34 @@ function formatRequestError(statusCode, result) {
 }
 
 /**
+ * Resolve request authentication headers for secret-key or OIDC mode.
+ */
+export async function getAuthHeaders({ useOidc, token }) {
+  if (useOidc) {
+    try {
+      const oidcToken = await core.getIDToken(OIDC_AUDIENCE);
+      core.setSecret(oidcToken);
+      return { Authorization: `Bearer ${oidcToken}` };
+    } catch {
+      throw new Error(
+        'use-oidc requires OIDC access. Add to your workflow job:\n' +
+          '  permissions:\n' +
+          '    id-token: write',
+      );
+    }
+  }
+
+  return { 'X-AIK-API-SECRET': token };
+}
+
+/**
  * Upload a coverage payload to Aikido.
  */
-export async function uploadCoverage(lcovFileContent, token) {
+export async function uploadCoverage(lcovFileContent, auth) {
+  const authHeaders = await getAuthHeaders(auth);
   const client = new HttpClient('aikido-code-coverage', [], {
     headers: {
-      'X-AIK-API-SECRET': token,
+      ...authHeaders,
       'Content-Type': 'application/json',
     },
   });

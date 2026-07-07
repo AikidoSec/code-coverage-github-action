@@ -25,7 +25,10 @@ async function run() {
     const lcovFileContent = await fs.readFile(lcovFilePath, 'utf8');
 
     core.info('Uploading coverage report to Aikido...');
-    await uploadCoverage(lcovFileContent, inputs.aikidoCiToken);
+    await uploadCoverage(lcovFileContent, {
+      useOidc: inputs.useOidc,
+      token: inputs.aikidoCiToken,
+    });
 
     core.info(`Upload succeeded.`);
   } catch (error) {
