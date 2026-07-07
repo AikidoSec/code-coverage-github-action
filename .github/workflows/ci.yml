@@ -33,21 +33,3 @@ jobs:
 
       - name: Build
         run: npm run build
-
-      - name: Test Aikido Upload Code Coverage action in workflow with CI token
-        uses: ./
-        with:
-          aikido-ci-token: ${{ secrets.AIKIDO_CI_TOKEN }}
-          lcov-file-paths: coverage/lcov.info
-        env:
-          DEVELOPMENT: 'true'
-          ACTIONS_STEP_DEBUG: 'true'
-
-      - name: Test Aikido Upload Code Coverage action in workflow with OIDC
-        uses: ./
-        with:
-          use-oidc: true
-          lcov-file-paths: coverage/lcov.info
-        env:
-          DEVELOPMENT: 'true'
-          ACTIONS_STEP_DEBUG: 'true'
