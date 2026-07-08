@@ -47,7 +47,7 @@ export async function uploadCoverage(lcovFileContent, auth) {
   const body = {
     repo_name: process.env.GITHUB_REPOSITORY,
     commit_sha: process.env.GITHUB_SHA,
-    branch_name: process.env.GITHUB_REF_NAME,
+    branch_name: process.env.GITHUB_HEAD_REF,
     lcov_file_content: lcovFileContent,
   };
 

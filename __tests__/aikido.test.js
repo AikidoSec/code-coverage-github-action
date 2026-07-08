@@ -55,7 +55,7 @@ describe('getAuthHeaders', () => {
     mockGetIDToken.mockRejectedValue(new Error('OIDC not available'));
 
     await expect(getAuthHeaders({ useOidc: true, token: '' })).rejects.toThrow(
-      "use-oidc requires OIDC access. Add to your workflow job:\n  permissions:\n    id-token: write",
+      'use-oidc requires OIDC access. Add to your workflow job:\n  permissions:\n    id-token: write',
     );
   });
 });
@@ -68,7 +68,7 @@ describe('uploadCoverage', () => {
   beforeEach(() => {
     process.env.GITHUB_REPOSITORY = 'org/repo';
     process.env.GITHUB_SHA = 'abc123';
-    process.env.GITHUB_REF_NAME = 'main';
+    process.env.GITHUB_HEAD_REF = 'main';
     delete process.env.DEVELOPMENT;
     mockHttpClient.mockImplementation(() => ({
       postJson: mockPostJson,
