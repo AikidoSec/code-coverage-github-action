@@ -47,7 +47,7 @@ describe('getAuthHeaders', () => {
     mockGetIDToken.mockRejectedValue(new Error('OIDC not available'));
 
     await expect(getAuthHeaders()).rejects.toThrow(
-      'use-oidc requires OIDC access. Add to your workflow job:\n  permissions:\n    id-token: write',
+      'This action uses OIDC to authenticate with Aikido. Add to your workflow job:\n  permissions:\n    id-token: write',
     );
   });
 });

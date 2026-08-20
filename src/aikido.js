@@ -37,7 +37,7 @@ export async function getAuthHeaders() {
     return { Authorization: `Bearer ${oidcToken}` };
   } catch {
     throw new Error(
-      'use-oidc requires OIDC access. Add to your workflow job:\n' +
+      'This action uses OIDC to authenticate with Aikido. Add to your workflow job:\n' +
         '  permissions:\n' +
         '    id-token: write',
     );

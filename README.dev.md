@@ -56,9 +56,13 @@ GitHub Actions inputs are exposed as environment variables with an `INPUT_` pref
 
 | Variable                | Required | Description                                        |
 | ----------------------- | -------- | -------------------------------------------------- |
-| `INPUT_AIKIDO-CI-TOKEN` | yes      | Your Aikido CI API token                           |
 | `INPUT_LCOV-FILE-PATHS` | yes      | Path(s) to LCOV file(s), e.g. `coverage/lcov.info` |
 | `INPUT_FAIL-ON-ERROR`   | no       | Defaults to `true`                                 |
+
+The published action authenticates with GitHub OIDC (`core.getIDToken`). That only works
+inside GitHub Actions when the job has `permissions: id-token: write`. Local `npm run local`
+runs can still exercise file discovery and merge, but the upload step will fail without a
+real OIDC token.
 
 For multiple LCOV files, separate paths with newlines, spaces, or commas (same parsing as in CI):
 
@@ -155,8 +159,8 @@ __tests__/          Jest unit tests
 
 Local runs execute `src/main.js` directly. Published workflows use the bundled `dist/index.js` built by `npm run build`.
 
-## Getting an Aikido CI token
+## Authentication
 
-1. In Aikido, open the CI integration detail page.
-2. Generate an authentication token and copy it (shown only once).
-3. Paste it into `.env` as `INPUT_AIKIDO-CI-TOKEN`.
+The action always uses GitHub OIDC. There is no CI API token input. In a workflow, grant
+`id-token: write` (and `contents: read` if the job checks out the repo) on the job that
+runs the action. See [README.md](./README.md#authentication).
