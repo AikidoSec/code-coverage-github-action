@@ -2,10 +2,13 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches:
+      - main
 
 jobs:
   build-and-test:
-    runs-on: standard-runner-no-rights-public-ip
+    runs-on: ubuntu-latest
     permissions:
       packages: write
       contents: write
@@ -33,3 +36,11 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Test Aikido Upload Code Coverage action in workflow with OIDC
+        uses: ./
+        with:
+          lcov-file-paths: coverage/lcov.info
+        env:
+          ACTIONS_STEP_DEBUG: 'true'
+          DEVELOPMENT: 'true'

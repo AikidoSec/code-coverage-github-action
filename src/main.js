@@ -14,6 +14,7 @@ async function run() {
     if (inputs.lcovFilePaths.length === 0) {
       throw new Error(`No lcov file(s) provided. Specify at least one path.`);
     }
+
     core.info(`Found ${inputs.lcovFilePaths.length} coverage file(s):`);
 
     let lcovFilePath = inputs.lcovFilePaths[0];
@@ -22,17 +23,15 @@ async function run() {
       lcovFilePath = await mergeLcov(inputs.lcovFilePaths);
     }
 
-    const lcovFileContent = await fs.readFile(lcovFilePath, 'utf8');
+    const codeCoverageFileContent = await fs.readFile(lcovFilePath, 'utf8');
 
     core.info('Uploading coverage report to Aikido...');
-    await uploadCoverage(lcovFileContent, {
-      useOidc: inputs.useOidc,
-      token: inputs.aikidoCiToken,
-    });
+    await uploadCoverage(codeCoverageFileContent);
 
     core.info(`Upload succeeded.`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+
     if (failOnError) {
       core.setFailed(message);
     } else {

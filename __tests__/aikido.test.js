@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 
-const mockPostJson = jest.fn();
+const mockPost = jest.fn();
 const mockHttpClient = jest.fn();
 const mockGetIDToken = jest.fn();
 const mockSetSecret = jest.fn();
@@ -19,13 +19,11 @@ jest.unstable_mockModule('@actions/http-client', () => ({
 
 const { getAuthHeaders, uploadCoverage } = await import('../src/aikido.js');
 
-class HttpClientError extends Error {
-  constructor(message, statusCode, result) {
-    super(message);
-    this.name = 'HttpClientError';
-    this.statusCode = statusCode;
-    this.result = result;
-  }
+function mockResponse(statusCode, rawBody = '') {
+  return {
+    message: { statusCode },
+    readBody: jest.fn().mockResolvedValue(rawBody),
+  };
 }
 
 describe('getAuthHeaders', () => {
@@ -35,16 +33,10 @@ describe('getAuthHeaders', () => {
     mockSetSecret.mockReset();
   });
 
-  it('returns the secret header when not using OIDC', async () => {
-    await expect(getAuthHeaders({ useOidc: false, token: 'secret-token' })).resolves.toEqual({
-      'X-AIK-API-SECRET': 'secret-token',
-    });
-  });
-
-  it('returns a bearer token and masks it when using OIDC', async () => {
+  it('returns a bearer token and masks it', async () => {
     mockGetIDToken.mockResolvedValue('oidc-jwt');
 
-    await expect(getAuthHeaders({ useOidc: true, token: '' })).resolves.toEqual({
+    await expect(getAuthHeaders()).resolves.toEqual({
       Authorization: 'Bearer oidc-jwt',
     });
     expect(mockGetIDToken).toHaveBeenCalledWith('https://app.aikido.dev');
@@ -54,16 +46,14 @@ describe('getAuthHeaders', () => {
   it('throws a friendly error when OIDC is unavailable', async () => {
     mockGetIDToken.mockRejectedValue(new Error('OIDC not available'));
 
-    await expect(getAuthHeaders({ useOidc: true, token: '' })).rejects.toThrow(
+    await expect(getAuthHeaders()).rejects.toThrow(
       'use-oidc requires OIDC access. Add to your workflow job:\n  permissions:\n    id-token: write',
     );
   });
 });
 
 describe('uploadCoverage', () => {
-  const lcovFileContent = 'TN:\nSF:a\nend_of_record\n';
-  const secretAuth = { useOidc: false, token: 'secret-token' };
-  const oidcAuth = { useOidc: true, token: '' };
+  const codeCoverageFileContent = 'TN:\nSF:a\nend_of_record\n';
 
   beforeEach(() => {
     process.env.GITHUB_REPOSITORY = 'org/repo';
@@ -71,89 +61,78 @@ describe('uploadCoverage', () => {
     process.env.GITHUB_HEAD_REF = 'main';
     delete process.env.DEVELOPMENT;
     mockHttpClient.mockImplementation(() => ({
-      postJson: mockPostJson,
+      post: mockPost,
     }));
-    mockPostJson.mockResolvedValue({ statusCode: 200, result: { success: true } });
+    mockPost.mockResolvedValue(mockResponse(200, JSON.stringify({ success: true })));
     mockGetIDToken.mockResolvedValue('oidc-jwt');
     mockSetSecret.mockReset();
   });
 
-  it('posts the coverage payload with the secret header', async () => {
-    const result = await uploadCoverage(lcovFileContent, secretAuth);
-
-    expect(result).toEqual({ success: true });
-    expect(mockHttpClient).toHaveBeenCalledWith('aikido-code-coverage', [], {
-      headers: {
-        'X-AIK-API-SECRET': 'secret-token',
-        'Content-Type': 'application/json',
-      },
-    });
-    expect(mockPostJson).toHaveBeenCalledWith(
-      'https://app.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
-      {
-        repo_name: 'org/repo',
-        commit_sha: 'abc123',
-        branch_name: 'main',
-        lcov_file_content: lcovFileContent,
-      },
-    );
-  });
-
-  it('posts the coverage payload with a bearer token when using OIDC', async () => {
-    const result = await uploadCoverage(lcovFileContent, oidcAuth);
+  it('posts the coverage payload with a bearer token', async () => {
+    const result = await uploadCoverage(codeCoverageFileContent);
 
     expect(result).toEqual({ success: true });
     expect(mockGetIDToken).toHaveBeenCalledWith('https://app.aikido.dev');
     expect(mockSetSecret).toHaveBeenCalledWith('oidc-jwt');
-    expect(mockHttpClient).toHaveBeenCalledWith('aikido-code-coverage', [], {
-      headers: {
+    expect(mockHttpClient).toHaveBeenCalledWith('aikido-code-coverage');
+    expect(mockPost).toHaveBeenCalledWith(
+      'https://app.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
+      JSON.stringify({
+        repo_name: 'org/repo',
+        commit_sha: 'abc123',
+        branch_name: 'main',
+        code_coverage_file_content: codeCoverageFileContent,
+      }),
+      {
         Authorization: 'Bearer oidc-jwt',
         'Content-Type': 'application/json',
+        Accept: 'application/json',
       },
-    });
+    );
   });
 
-  it('throws with the API error message when postJson rejects', async () => {
-    mockPostJson.mockRejectedValue(
-      new HttpClientError('Failed request: (401)', 401, { message: 'Invalid API key' }),
+  it('throws with reason_phrase from the JSON body', async () => {
+    mockPost.mockResolvedValue(
+      mockResponse(
+        401,
+        JSON.stringify({ status_code: 401, reason_phrase: 'OIDC token audience mismatch.' }),
+      ),
     );
 
-    await expect(uploadCoverage(lcovFileContent, secretAuth)).rejects.toThrow(
+    await expect(uploadCoverage(codeCoverageFileContent)).rejects.toThrow(
+      'Aikido upload failed: Request failed with status code 401 - OIDC token audience mismatch.',
+    );
+  });
+
+  it('throws with the API message when reason_phrase is absent', async () => {
+    mockPost.mockResolvedValue(mockResponse(401, JSON.stringify({ message: 'Invalid API key' })));
+
+    await expect(uploadCoverage(codeCoverageFileContent)).rejects.toThrow(
       'Aikido upload failed: Request failed with status code 401 - Invalid API key',
     );
   });
 
-  it('throws with the status code when postJson rejects without a response body', async () => {
-    mockPostJson.mockRejectedValue(new HttpClientError('Failed request: (401)', 401));
+  it('throws with the raw body when JSON has no known error fields', async () => {
+    mockPost.mockResolvedValue(mockResponse(401, JSON.stringify({ unexpected: true })));
 
-    await expect(uploadCoverage(lcovFileContent, secretAuth)).rejects.toThrow(
+    await expect(uploadCoverage(codeCoverageFileContent)).rejects.toThrow(
+      'Aikido upload failed: Request failed with status code 401 - {"unexpected":true}',
+    );
+  });
+
+  it('throws with the status code when the response body is empty', async () => {
+    mockPost.mockResolvedValue(mockResponse(401, ''));
+
+    await expect(uploadCoverage(codeCoverageFileContent)).rejects.toThrow(
       'Aikido upload failed: Request failed with status code 401',
     );
   });
 
-  it('throws when the response status is not OK', async () => {
-    mockPostJson.mockResolvedValue({
-      statusCode: 500,
-      result: { message: 'Internal server error' },
-    });
+  it('throws with the raw body when the response is not JSON', async () => {
+    mockPost.mockResolvedValue(mockResponse(500, 'Internal server error'));
 
-    await expect(uploadCoverage(lcovFileContent, secretAuth)).rejects.toThrow(
+    await expect(uploadCoverage(codeCoverageFileContent)).rejects.toThrow(
       'Aikido upload failed: Request failed with status code 500 - Internal server error',
-    );
-  });
-
-  it('throws with reason_phrase when the API returns that format', async () => {
-    const reasonPhrase =
-      "No repository exists with the provided name: 'code-coverage-github-action'";
-    mockPostJson.mockRejectedValue(
-      new HttpClientError(JSON.stringify({ status_code: 400, reason_phrase: reasonPhrase }), 400, {
-        status_code: 400,
-        reason_phrase: reasonPhrase,
-      }),
-    );
-
-    await expect(uploadCoverage(lcovFileContent, secretAuth)).rejects.toThrow(
-      `Aikido upload failed: Request failed with status code 400 - ${reasonPhrase}`,
     );
   });
 });
