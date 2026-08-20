@@ -43,4 +43,3 @@ jobs:
           lcov-file-paths: coverage/lcov.info
         env:
           ACTIONS_STEP_DEBUG: 'true'
-          DEVELOPMENT: 'true'
