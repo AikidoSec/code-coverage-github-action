@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    runs-on: standard-runner-no-rights-public-ip
     permissions:
       packages: write
       contents: write
