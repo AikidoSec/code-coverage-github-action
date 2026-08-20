@@ -7,6 +7,9 @@ The action reads one or more LCOV reports from the paths you provide. When multi
 given, it merges them into a single file before upload. It then POSTs the LCOV content to the Aikido CI code coverage API together with the
 repository name, commit SHA, and branch name.
 
+Authentication uses GitHub OIDC (keyless). The job that runs this action must grant
+`id-token: write`. No API token or repository secret is required.
+
 ## Usage
 
 Run your tests with coverage first, then point this action at the generated LCOV file.
@@ -19,6 +22,9 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -32,7 +38,6 @@ jobs:
       - name: Upload coverage to Aikido
         uses: AikidoSec/code-coverage-github-action@v1
         with:
-          aikido-ci-token: ${{ secrets.AIKIDO_CI_TOKEN }}
           lcov-file-paths: coverage/lcov.info
 ```
 
@@ -45,7 +50,6 @@ action merges all inputs into one upload.
 - name: Upload coverage to Aikido
   uses: AikidoSec/code-coverage-github-action@v1
   with:
-    aikido-ci-token: ${{ secrets.AIKIDO_CI_TOKEN }}
     lcov-file-paths: |
       packages/a/coverage/lcov.info
       packages/b/coverage/lcov.info
@@ -90,6 +94,9 @@ jobs:
   upload-coverage:
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -100,7 +107,6 @@ jobs:
       - name: Upload coverage to Aikido
         uses: AikidoSec/code-coverage-github-action@v1
         with:
-          aikido-ci-token: ${{ secrets.AIKIDO_CI_TOKEN }}
           lcov-file-paths: |
             coverage-reports/packages/a/coverage/lcov.info
             coverage-reports/packages/b/coverage/lcov.info
@@ -111,16 +117,35 @@ jobs:
 each file's path, so the paths above match what `upload-artifact` stored. Adjust the matrix
 and paths to match your repository layout.
 
+Grant `id-token: write` on the job that runs this action (`upload-coverage` above), not on
+the matrix test jobs.
+
 ## Inputs
 
 | Input             | Required | Default | Description                                                                           |
 | ----------------- | -------- | ------- | ------------------------------------------------------------------------------------- |
-| `aikido-ci-token` | yes      | —       | Aikido CI API token. Store it as a repository secret.                                 |
 | `lcov-file-paths` | yes      | —       | Path(s) to the LCOV report file(s).                                                   |
 | `fail-on-error`   | no       | `true`  | Fail the action if reading or upload fails. Set to `false` to emit a warning instead. |
 
 ## Authentication
 
-1. In Aikido, open the CI integration detail page.
-2. Generate an authentication token and copy it (it is shown only once).
-3. Add it as a repository secret, e.g. `AIKIDO_CI_TOKEN`, and pass it via the `aikido-ci-token` input.
+The action authenticates with GitHub OIDC. The workflow job must grant `id-token: write`
+so GitHub can mint a JWT for Aikido. Setting any `permissions` key resets the rest to
+none, so also grant `contents: read` if the job checks out the repository.
+
+```yaml
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm test -- --coverage
+
+      - name: Upload coverage to Aikido
+        uses: AikidoSec/code-coverage-github-action@v1
+        with:
+          lcov-file-paths: coverage/lcov.info
+```

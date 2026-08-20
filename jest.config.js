@@ -4,5 +4,7 @@ export default {
   testMatch: ['**/__tests__/**/*.test.js'],
   clearMocks: true,
   collectCoverageFrom: ['src/**/*.js'],
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'lcov', 'json-summary'],
   verbose: true,
 };

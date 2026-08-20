@@ -6,9 +6,6 @@ branding:
   color: 'purple'
 
 inputs:
-  aikido-ci-token:
-    description: 'Aikido CI API token. Store it as a repository secret.'
-    required: true
   lcov-file-paths:
     description: 'Path(s) to the LCOV coverage report(s). Separate multiple entries with newlines'
     required: true

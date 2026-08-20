@@ -10,7 +10,7 @@
     "lint": "eslint src __tests__",
     "format": "prettier --write \"**/*.js\"",
     "format:check": "prettier --check \"**/*.js\"",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "local": "local-action . src/main.js .env",
     "all": "npm run format && npm run lint && npm run test && npm run build"
   },
