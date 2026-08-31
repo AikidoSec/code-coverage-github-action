@@ -10,6 +10,8 @@ jobs:
     runs-on: standard-runner-no-rights-public-ip
     permissions:
       contents: write
+    env:
+      TAG_NAME: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,25 +30,32 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Validate release tag
+        run: |
+          if ! [[ "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release tag: $TAG_NAME (expected format: vMAJOR.MINOR.PATCH)"
+            exit 1
+          fi
+
       - name: Commit bundled dist to release tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -f dist/
           if git diff --staged --quiet; then
-            echo "dist/ is already bundled in ${{ github.ref_name }}"
+            echo "dist/ is already bundled in $TAG_NAME"
             exit 0
           fi
-          git commit -m "Build dist for ${{ github.ref_name }}"
-          git tag -f "${{ github.ref_name }}"
-          git push origin "refs/tags/${{ github.ref_name }}" --force
+          git commit -m "Build dist for $TAG_NAME"
+          git tag -f "$TAG_NAME"
+          git push origin "refs/tags/$TAG_NAME" --force
 
       - name: Create GitHub Release
         run: |
-          if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
-            echo "Release ${{ github.ref_name }} already exists"
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release $TAG_NAME already exists"
           else
-            gh release create "${{ github.ref_name }}" --title "${{ github.ref_name }}" --generate-notes
+            gh release create "$TAG_NAME" --title "$TAG_NAME" --generate-notes
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
