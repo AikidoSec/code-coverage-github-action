@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 import { gunzipSync } from 'node:zlib';
 
-const mockSendStream = jest.fn();
+const mockPost = jest.fn();
 const mockHttpClient = jest.fn();
 const mockGetIDToken = jest.fn();
 const mockSetSecret = jest.fn();
@@ -25,6 +25,10 @@ function mockResponse(statusCode, rawBody = '') {
     message: { statusCode },
     readBody: jest.fn().mockResolvedValue(rawBody),
   };
+}
+
+function decodeCoverageContent(encoded) {
+  return gunzipSync(Buffer.from(encoded, 'base64')).toString('utf8');
 }
 
 describe('getAuthHeaders', () => {
@@ -62,9 +66,9 @@ describe('uploadCoverage', () => {
     process.env.GITHUB_HEAD_REF = 'main';
     delete process.env.DEVELOPMENT;
     mockHttpClient.mockImplementation(() => ({
-      sendStream: mockSendStream,
+      post: mockPost,
     }));
-    mockSendStream.mockResolvedValue(mockResponse(200, JSON.stringify({ success: true })));
+    mockPost.mockResolvedValue(mockResponse(200, JSON.stringify({ success: true })));
     mockGetIDToken.mockResolvedValue('oidc-jwt');
     mockSetSecret.mockReset();
   });
@@ -76,30 +80,28 @@ describe('uploadCoverage', () => {
     expect(mockGetIDToken).toHaveBeenCalledWith('https://app.aikido.dev');
     expect(mockSetSecret).toHaveBeenCalledWith('oidc-jwt');
     expect(mockHttpClient).toHaveBeenCalledWith('aikido-code-coverage');
-    expect(mockSendStream).toHaveBeenCalledTimes(1);
-    const [verb, url, bodyStream, headers] = mockSendStream.mock.calls[0];
-    expect(verb).toBe('POST');
+    expect(mockPost).toHaveBeenCalledTimes(1);
+    const [url, rawBody, headers] = mockPost.mock.calls[0];
     expect(url).toBe(
       'https://app.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
     );
-    const body = Buffer.concat(await bodyStream.toArray());
-    expect(JSON.parse(gunzipSync(body).toString('utf8'))).toEqual({
+    const body = JSON.parse(rawBody);
+    expect(body).toEqual({
       repo_name: 'org/repo',
       commit_sha: 'abc123',
       branch_name: 'main',
-      code_coverage_file_content: codeCoverageFileContent,
+      code_coverage_file_content: expect.any(String),
     });
+    expect(decodeCoverageContent(body.code_coverage_file_content)).toBe(codeCoverageFileContent);
     expect(headers).toEqual({
       Authorization: 'Bearer oidc-jwt',
       'Content-Type': 'application/json',
-      'Content-Encoding': 'gzip',
-      'Content-Length': String(body.length),
       Accept: 'application/json',
     });
   });
 
   it('throws with reason_phrase from the JSON body', async () => {
-    mockSendStream.mockResolvedValue(
+    mockPost.mockResolvedValue(
       mockResponse(
         401,
         JSON.stringify({ status_code: 401, reason_phrase: 'OIDC token audience mismatch.' }),
@@ -112,9 +114,7 @@ describe('uploadCoverage', () => {
   });
 
   it('throws with the API message when reason_phrase is absent', async () => {
-    mockSendStream.mockResolvedValue(
-      mockResponse(401, JSON.stringify({ message: 'Invalid API key' })),
-    );
+    mockPost.mockResolvedValue(mockResponse(401, JSON.stringify({ message: 'Invalid API key' })));
 
     await expect(uploadCoverage(codeCoverageFileContent)).rejects.toThrow(
       'Aikido upload failed: Request failed with status code 401 - Invalid API key',
@@ -122,7 +122,7 @@ describe('uploadCoverage', () => {
   });
 
   it('throws with the raw body when JSON has no known error fields', async () => {
-    mockSendStream.mockResolvedValue(mockResponse(401, JSON.stringify({ unexpected: true })));
+    mockPost.mockResolvedValue(mockResponse(401, JSON.stringify({ unexpected: true })));
 
     await expect(uploadCoverage(codeCoverageFileContent)).rejects.toThrow(
       'Aikido upload failed: Request failed with status code 401 - {"unexpected":true}',
@@ -130,7 +130,7 @@ describe('uploadCoverage', () => {
   });
 
   it('throws with the status code when the response body is empty', async () => {
-    mockSendStream.mockResolvedValue(mockResponse(401, ''));
+    mockPost.mockResolvedValue(mockResponse(401, ''));
 
     await expect(uploadCoverage(codeCoverageFileContent)).rejects.toThrow(
       'Aikido upload failed: Request failed with status code 401',
@@ -138,7 +138,7 @@ describe('uploadCoverage', () => {
   });
 
   it('throws with the raw body when the response is not JSON', async () => {
-    mockSendStream.mockResolvedValue(mockResponse(500, 'Internal server error'));
+    mockPost.mockResolvedValue(mockResponse(500, 'Internal server error'));
 
     await expect(uploadCoverage(codeCoverageFileContent)).rejects.toThrow(
       'Aikido upload failed: Request failed with status code 500 - Internal server error',

@@ -1,6 +1,5 @@
 import * as core from '@actions/core';
 import { HttpClient, HttpCodes } from '@actions/http-client';
-import { Readable } from 'node:stream';
 import { gzipSync } from 'node:zlib';
 
 const BASE_URL = process.env.DEVELOPMENT ? 'https://app.test.aikido.dev' : 'https://app.aikido.dev';
@@ -57,17 +56,14 @@ export async function uploadCoverage(codeCoverageFileContent) {
     repo_name: process.env.GITHUB_REPOSITORY,
     commit_sha: process.env.GITHUB_SHA,
     branch_name: process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME,
-    code_coverage_file_content: codeCoverageFileContent,
+    code_coverage_file_content: gzipSync(codeCoverageFileContent).toString('base64'),
   };
 
   const url = `${BASE_URL}/api/integrations/continuous_integration/scan/code_coverage`;
-  const compressedBody = gzipSync(JSON.stringify(body));
 
-  const response = await client.sendStream('POST', url, Readable.from(compressedBody), {
+  const response = await client.post(url, JSON.stringify(body), {
     ...authHeaders,
     'Content-Type': 'application/json',
-    'Content-Encoding': 'gzip',
-    'Content-Length': String(compressedBody.length),
     Accept: 'application/json',
   });
 
