@@ -1,5 +1,6 @@
 import * as core from '@actions/core';
 import { HttpClient, HttpCodes } from '@actions/http-client';
+import { gzipSync } from 'node:zlib';
 
 const BASE_URL = process.env.DEVELOPMENT ? 'https://app.test.aikido.dev' : 'https://app.aikido.dev';
 const OIDC_AUDIENCE = BASE_URL;
@@ -59,10 +60,12 @@ export async function uploadCoverage(codeCoverageFileContent) {
   };
 
   const url = `${BASE_URL}/api/integrations/continuous_integration/scan/code_coverage`;
+  const compressedBody = gzipSync(JSON.stringify(body));
 
-  const response = await client.post(url, JSON.stringify(body), {
+  const response = await client.post(url, compressedBody, {
     ...authHeaders,
     'Content-Type': 'application/json',
+    'Content-Encoding': 'gzip',
     Accept: 'application/json',
   });
 

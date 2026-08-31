@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import { gunzipSync } from 'node:zlib';
 
 const mockPost = jest.fn();
 const mockHttpClient = jest.fn();
@@ -75,20 +76,23 @@ describe('uploadCoverage', () => {
     expect(mockGetIDToken).toHaveBeenCalledWith('https://app.aikido.dev');
     expect(mockSetSecret).toHaveBeenCalledWith('oidc-jwt');
     expect(mockHttpClient).toHaveBeenCalledWith('aikido-code-coverage');
-    expect(mockPost).toHaveBeenCalledWith(
+    expect(mockPost).toHaveBeenCalledTimes(1);
+    const [url, body, headers] = mockPost.mock.calls[0];
+    expect(url).toBe(
       'https://app.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
-      JSON.stringify({
-        repo_name: 'org/repo',
-        commit_sha: 'abc123',
-        branch_name: 'main',
-        code_coverage_file_content: codeCoverageFileContent,
-      }),
-      {
-        Authorization: 'Bearer oidc-jwt',
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
     );
+    expect(JSON.parse(gunzipSync(body).toString('utf8'))).toEqual({
+      repo_name: 'org/repo',
+      commit_sha: 'abc123',
+      branch_name: 'main',
+      code_coverage_file_content: codeCoverageFileContent,
+    });
+    expect(headers).toEqual({
+      Authorization: 'Bearer oidc-jwt',
+      'Content-Type': 'application/json',
+      'Content-Encoding': 'gzip',
+      Accept: 'application/json',
+    });
   });
 
   it('throws with reason_phrase from the JSON body', async () => {
