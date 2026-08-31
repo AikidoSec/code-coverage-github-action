@@ -26,6 +26,9 @@
     "security"
   ],
   "license": "MIT",
+  "overrides": {
+    "undici@<6.28.0": "6.28.0"
+  },
   "dependencies": {
     "@actions/core": "3.0.1",
     "@actions/http-client": "4.0.1"
