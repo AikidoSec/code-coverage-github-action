@@ -27,7 +27,7 @@
   ],
   "license": "MIT",
   "overrides": {
-    "undici@<6.28.0": "6.28.0"
+    "undici@<=7.29.0": "7.29.0"
   },
   "dependencies": {
     "@actions/core": "3.0.1",
