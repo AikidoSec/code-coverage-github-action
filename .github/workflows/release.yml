@@ -6,16 +6,40 @@ on:
       - 'v*'
 
 jobs:
-  release:
+  validate-and-build:
     runs-on: standard-runner-no-rights-public-ip
     permissions:
-      contents: write
+      contents: read
     env:
       TAG_NAME: ${{ github.ref_name }}
+      TAG_SHA: ${{ github.sha }}
     steps:
+      - name: Validate release tag
+        run: |
+          if ! [[ "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release tag: $TAG_NAME (expected format: vMAJOR.MINOR.PATCH)"
+            exit 1
+          fi
+
+      - name: Validate tagged commit is on main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          status=$(gh api "repos/${GITHUB_REPOSITORY}/compare/main...${TAG_SHA}" --jq '.status')
+          case "$status" in
+            identical|behind)
+              echo "Tag commit ${TAG_SHA} is on main (${status})"
+              ;;
+            *)
+              echo "Tag commit ${TAG_SHA} is not on main (status: ${status})"
+              exit 1
+              ;;
+          esac
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -30,12 +54,28 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Validate release tag
-        run: |
-          if ! [[ "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Invalid release tag: $TAG_NAME (expected format: vMAJOR.MINOR.PATCH)"
-            exit 1
-          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: validate-and-build
+    runs-on: standard-runner-no-rights-public-ip
+    permissions:
+      contents: write
+    env:
+      TAG_NAME: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
 
       - name: Commit bundled dist to release tag
         run: |
