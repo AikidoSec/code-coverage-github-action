@@ -94,9 +94,6 @@ describe('main.js security - single file path validation', () => {
           expect.stringContaining(
             'Invalid file path: absolute paths and ".." segments are not allowed',
           ),
-          expect.stringContaining(
-            'Invalid file path: absolute paths and ".." segments are not allowed',
-          ),
         );
         expect(mockPost).not.toHaveBeenCalled();
       } finally {
@@ -117,9 +114,6 @@ describe('main.js security - single file path validation', () => {
           expect.stringContaining(
             'Invalid file path: absolute paths and ".." segments are not allowed',
           ),
-          expect.stringContaining(
-            'Invalid file path: absolute paths and ".." segments are not allowed',
-          ),
         );
         expect(mockPost).not.toHaveBeenCalled();
       } finally {
@@ -137,9 +131,6 @@ describe('main.js security - single file path validation', () => {
         await run();
 
         expect(mockSetFailed).toHaveBeenCalledWith(
-          expect.stringContaining(
-            'Invalid file path: absolute paths and ".." segments are not allowed',
-          ),
           expect.stringContaining(
             'Invalid file path: absolute paths and ".." segments are not allowed',
           ),
@@ -165,9 +156,6 @@ describe('main.js security - single file path validation', () => {
           expect.stringContaining(
             'Invalid file path: absolute paths and ".." segments are not allowed',
           ),
-          expect.stringContaining(
-            'Invalid file path: absolute paths and ".." segments are not allowed',
-          ),
         );
         expect(mockPost).not.toHaveBeenCalled();
       } finally {
@@ -190,9 +178,6 @@ describe('main.js security - single file path validation', () => {
             expect.stringContaining(
               'Invalid file path: absolute paths and ".." segments are not allowed',
             ),
-            expect.stringContaining(
-              'Invalid file path: absolute paths and ".." segments are not allowed',
-            ),
           );
           expect(mockPost).not.toHaveBeenCalled();
         } else {
@@ -202,9 +187,6 @@ describe('main.js security - single file path validation', () => {
           await run();
 
           expect(mockSetFailed).toHaveBeenCalledWith(
-            expect.stringContaining(
-              'Invalid file path: absolute paths and ".." segments are not allowed',
-            ),
             expect.stringContaining(
               'Invalid file path: absolute paths and ".." segments are not allowed',
             ),
@@ -236,7 +218,7 @@ describe('main.js security - single file path validation', () => {
         expect(mockPost).toHaveBeenCalledTimes(1);
         const postCall = mockPost.mock.calls[0];
         expect(postCall[0]).toBe(
-          'https://app.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
+          'https://bg.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
         );
 
         const body = JSON.parse(gunzipSync(postCall[1]).toString('utf8'));
@@ -270,7 +252,7 @@ describe('main.js security - single file path validation', () => {
         expect(mockPost).toHaveBeenCalledTimes(1);
         const postCall = mockPost.mock.calls[0];
         expect(postCall[0]).toBe(
-          'https://app.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
+          'https://bg.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
         );
 
         // Parse the gzip-compressed JSON body and verify it contains the lcov content
@@ -362,10 +344,7 @@ describe('main.js security - single file path validation', () => {
         expect(mockSetFailed).not.toHaveBeenCalled();
         expect(mockWarning).toHaveBeenCalledWith(
           expect.stringContaining(
-            'Invalid file path: absolute paths and ".." segments are not allowed',
-          ),
-          expect.stringContaining(
-            'Invalid file path: absolute paths and ".." segments are not allowed',
+            'Coverage upload skipped: Invalid file path: absolute paths and ".." segments are not allowed',
           ),
         );
         expect(mockPost).not.toHaveBeenCalled();
@@ -388,9 +367,6 @@ describe('main.js security - single file path validation', () => {
 
         // Verify the attack was blocked
         expect(mockSetFailed).toHaveBeenCalledWith(
-          expect.stringContaining(
-            'Invalid file path: absolute paths and ".." segments are not allowed',
-          ),
           expect.stringContaining(
             'Invalid file path: absolute paths and ".." segments are not allowed',
           ),
@@ -418,9 +394,6 @@ describe('main.js security - single file path validation', () => {
           expect.stringContaining(
             'Invalid file path: absolute paths and ".." segments are not allowed',
           ),
-          expect.stringContaining(
-            'Invalid file path: absolute paths and ".." segments are not allowed',
-          ),
         );
 
         // Verify no data was uploaded
@@ -442,9 +415,6 @@ describe('main.js security - single file path validation', () => {
 
         // Verify the attack was blocked
         expect(mockSetFailed).toHaveBeenCalledWith(
-          expect.stringContaining(
-            'Invalid file path: absolute paths and ".." segments are not allowed',
-          ),
           expect.stringContaining(
             'Invalid file path: absolute paths and ".." segments are not allowed',
           ),
@@ -471,9 +441,6 @@ describe('main.js security - single file path validation', () => {
 
         // Should fail with validation error, not file not found error
         expect(mockSetFailed).toHaveBeenCalledWith(
-          expect.stringContaining(
-            'Invalid file path: absolute paths and ".." segments are not allowed',
-          ),
           expect.stringContaining(
             'Invalid file path: absolute paths and ".." segments are not allowed',
           ),
