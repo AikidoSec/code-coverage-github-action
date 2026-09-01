@@ -222,7 +222,7 @@ describe('main.js security - single file path validation', () => {
         expect(mockPost).toHaveBeenCalledTimes(1);
         const [url, rawBody, headers] = mockPost.mock.calls[0];
         expect(url).toBe(
-          'https://bg.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
+          'https://app.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
         );
 
         const body = JSON.parse(rawBody);
@@ -257,7 +257,7 @@ describe('main.js security - single file path validation', () => {
         expect(mockPost).toHaveBeenCalledTimes(1);
         const [url, rawBody] = mockPost.mock.calls[0];
         expect(url).toBe(
-          'https://bg.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
+          'https://app.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
         );
 
         const body = JSON.parse(rawBody);
