@@ -40,7 +40,7 @@ describe('getAuthHeaders', () => {
     await expect(getAuthHeaders()).resolves.toEqual({
       Authorization: 'Bearer oidc-jwt',
     });
-    expect(mockGetIDToken).toHaveBeenCalledWith('https://app.aikido.dev');
+    expect(mockGetIDToken).toHaveBeenCalledWith('https://bg.aikido.dev');
     expect(mockSetSecret).toHaveBeenCalledWith('oidc-jwt');
   });
 
@@ -73,13 +73,13 @@ describe('uploadCoverage', () => {
     const result = await uploadCoverage(codeCoverageFileContent);
 
     expect(result).toEqual({ success: true });
-    expect(mockGetIDToken).toHaveBeenCalledWith('https://app.aikido.dev');
+    expect(mockGetIDToken).toHaveBeenCalledWith('https://bg.aikido.dev');
     expect(mockSetSecret).toHaveBeenCalledWith('oidc-jwt');
     expect(mockHttpClient).toHaveBeenCalledWith('aikido-code-coverage');
     expect(mockPost).toHaveBeenCalledTimes(1);
     const [url, body, headers] = mockPost.mock.calls[0];
     expect(url).toBe(
-      'https://app.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
+      'https://bg.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
     );
     expect(JSON.parse(gunzipSync(body).toString('utf8'))).toEqual({
       repo_name: 'org/repo',
