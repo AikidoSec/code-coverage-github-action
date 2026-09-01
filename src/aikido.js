@@ -2,7 +2,7 @@ import * as core from '@actions/core';
 import { HttpClient, HttpCodes } from '@actions/http-client';
 import { gzipSync } from 'node:zlib';
 
-const BASE_URL = process.env.DEVELOPMENT ? 'https://app.test.aikido.dev' : 'https://app.aikido.dev';
+const BASE_URL = process.env.DEVELOPMENT ? 'https://app.test.aikido.dev' : 'https://bg.aikido.dev';
 const OIDC_AUDIENCE = BASE_URL;
 
 function parseJsonBody(rawBody) {
