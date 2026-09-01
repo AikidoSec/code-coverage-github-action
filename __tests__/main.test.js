@@ -14,6 +14,10 @@ const mockHttpClient = jest.fn();
 const mockGetIDToken = jest.fn();
 const mockSetSecret = jest.fn();
 
+function decodeCoverageContent(encoded) {
+  return gunzipSync(Buffer.from(encoded, 'base64')).toString('utf8');
+}
+
 jest.unstable_mockModule('@actions/core', () => ({
   info: mockInfo,
   setFailed: mockSetFailed,
@@ -216,16 +220,17 @@ describe('main.js security - single file path validation', () => {
 
         // Verify the POST was called with the correct content
         expect(mockPost).toHaveBeenCalledTimes(1);
-        const postCall = mockPost.mock.calls[0];
-        expect(postCall[0]).toBe(
+        const [url, rawBody, headers] = mockPost.mock.calls[0];
+        expect(url).toBe(
           'https://bg.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
         );
 
-        const body = JSON.parse(gunzipSync(postCall[1]).toString('utf8'));
-        expect(body.code_coverage_file_content).toBe(lcovContent);
+        const body = JSON.parse(rawBody);
+        expect(decodeCoverageContent(body.code_coverage_file_content)).toBe(lcovContent);
         expect(body.repo_name).toBe('org/repo');
         expect(body.commit_sha).toBe('abc123');
-        expect(postCall[2]['Content-Encoding']).toBe('gzip');
+        expect(headers['Content-Type']).toBe('application/json');
+        expect(headers['Content-Encoding']).toBeUndefined();
 
         expect(mockInfo).toHaveBeenCalledWith('Upload succeeded.');
       } finally {
@@ -250,15 +255,13 @@ describe('main.js security - single file path validation', () => {
 
         // Verify the POST was called with the correct content
         expect(mockPost).toHaveBeenCalledTimes(1);
-        const postCall = mockPost.mock.calls[0];
-        expect(postCall[0]).toBe(
+        const [url, rawBody] = mockPost.mock.calls[0];
+        expect(url).toBe(
           'https://bg.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
         );
 
-        // Parse the gzip-compressed JSON body and verify it contains the lcov content
-        const body = JSON.parse(gunzipSync(postCall[1]).toString('utf8'));
-        expect(body.code_coverage_file_content).toBe(lcovContent);
-        expect(postCall[2]['Content-Encoding']).toBe('gzip');
+        const body = JSON.parse(rawBody);
+        expect(decodeCoverageContent(body.code_coverage_file_content)).toBe(lcovContent);
       } finally {
         process.chdir(previousCwd);
       }
@@ -302,7 +305,6 @@ describe('main.js security - single file path validation', () => {
         await run();
 
         expect(mockSetFailed).toHaveBeenCalledWith(expect.stringContaining('Invalid file path'));
-        expect(mockSetFailed).toHaveBeenCalledWith(expect.stringContaining('Invalid file path'));
         expect(mockPost).not.toHaveBeenCalled();
       } finally {
         process.chdir(previousCwd);
@@ -321,7 +323,6 @@ describe('main.js security - single file path validation', () => {
 
         await run();
 
-        expect(mockSetFailed).toHaveBeenCalledWith(expect.stringContaining('Invalid file path'));
         expect(mockSetFailed).toHaveBeenCalledWith(expect.stringContaining('Invalid file path'));
         expect(mockPost).not.toHaveBeenCalled();
       } finally {

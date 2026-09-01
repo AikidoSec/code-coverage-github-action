@@ -27,6 +27,10 @@ function mockResponse(statusCode, rawBody = '') {
   };
 }
 
+function decodeCoverageContent(encoded) {
+  return gunzipSync(Buffer.from(encoded, 'base64')).toString('utf8');
+}
+
 describe('getAuthHeaders', () => {
   beforeEach(() => {
     delete process.env.DEVELOPMENT;
@@ -77,20 +81,21 @@ describe('uploadCoverage', () => {
     expect(mockSetSecret).toHaveBeenCalledWith('oidc-jwt');
     expect(mockHttpClient).toHaveBeenCalledWith('aikido-code-coverage');
     expect(mockPost).toHaveBeenCalledTimes(1);
-    const [url, body, headers] = mockPost.mock.calls[0];
+    const [url, rawBody, headers] = mockPost.mock.calls[0];
     expect(url).toBe(
       'https://bg.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
     );
-    expect(JSON.parse(gunzipSync(body).toString('utf8'))).toEqual({
+    const body = JSON.parse(rawBody);
+    expect(body).toEqual({
       repo_name: 'org/repo',
       commit_sha: 'abc123',
       branch_name: 'main',
-      code_coverage_file_content: codeCoverageFileContent,
+      code_coverage_file_content: expect.any(String),
     });
+    expect(decodeCoverageContent(body.code_coverage_file_content)).toBe(codeCoverageFileContent);
     expect(headers).toEqual({
       Authorization: 'Bearer oidc-jwt',
       'Content-Type': 'application/json',
-      'Content-Encoding': 'gzip',
       Accept: 'application/json',
     });
   });
