@@ -1,3 +1,4 @@
+import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import * as glob from '@actions/glob';
 
@@ -29,16 +30,24 @@ async function matchPattern(pattern, cwd) {
     throw new Error(`No file(s) found matching "${pattern}"`);
   }
 
-  return matches.sort().map((match) => {
-    const resolvedPath = path.resolve(match);
-    const relativePath = path.relative(cwd, resolvedPath);
+  return Promise.all(
+    matches.sort().map(async (match) => {
+      const resolvedPath = path.resolve(match);
+      const relativePath = path.relative(cwd, resolvedPath);
 
-    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-      throw new Error(`Invalid file path: "${pattern}" resolved outside the workspace`);
-    }
+      if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+        throw new Error(`Invalid file path: "${pattern}" resolved outside the workspace`);
+      }
 
-    return resolvedPath;
-  });
+      // followSymbolicLinks: false above only stops glob from descending into symlinked
+      // directories; it still returns a symlinked file as a match, so check explicitly.
+      if ((await fs.lstat(resolvedPath)).isSymbolicLink()) {
+        throw new Error(`Invalid file path: "${pattern}" matched a symlink, which is not allowed`);
+      }
+
+      return resolvedPath;
+    }),
+  );
 }
 
 // Every pattern must match at least one file, so a typo fails loudly instead of silently dropping coverage.
