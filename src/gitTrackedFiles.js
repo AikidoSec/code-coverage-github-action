@@ -73,15 +73,25 @@ function preferClosestGitPath(coveragePath, candidates) {
     const sharedSegmentsDiff =
       countSharedTrailingSegments(coveragePath, right) -
       countSharedTrailingSegments(coveragePath, left);
+
     if (sharedSegmentsDiff !== 0) {
       return sharedSegmentsDiff;
     }
+
     return left.length - right.length;
   });
+
   const [best, next] = ranked;
-  if (next && countSharedTrailingSegments(coveragePath, best) === countSharedTrailingSegments(coveragePath, next) && best.length === next.length) {
+
+  if (
+    next &&
+    countSharedTrailingSegments(coveragePath, best) ===
+      countSharedTrailingSegments(coveragePath, next) &&
+    best.length === next.length
+  ) {
     return null;
   }
+
   return best;
 }
 
