@@ -36,7 +36,7 @@ jobs:
       - run: npm ci
       - run: npm test -- --coverage # produces coverage/lcov.info
 
-      - uses: actions/upload-artifact@7
+      - uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: coverage/
@@ -49,7 +49,7 @@ jobs:
       id-token: write # required for upload
       contents: read # required for upload
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v4
         with:
           name: coverage
           path: coverage
