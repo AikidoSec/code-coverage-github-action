@@ -1,6 +1,11 @@
 import path from 'node:path';
 import * as glob from '@actions/glob';
 
+/**
+ * Validate that a file path is safe to read.
+ * Rejects absolute paths and paths containing '..' segments to prevent
+ * directory traversal and arbitrary file access.
+ */
 function assertSafePattern(pattern) {
   const segments = pattern.split(/[\\/]+/);
 
