@@ -68,4 +68,18 @@ describe('resolveLcovFilePaths', () => {
       /Invalid file path: absolute paths and "\.\." segments are not allowed/,
     );
   });
+
+  it('rejects a matched file that is a symlink outside the workspace', async () => {
+    const secret = await fs.mkdtemp(path.join(os.tmpdir(), 'resolve-lcov-secret-'));
+    await fs.writeFile(path.join(secret, 'passwd'), 'root:x:0:0');
+    await fs.symlink(path.join(secret, 'passwd'), 'coverage.info');
+
+    try {
+      await expect(resolveLcovFilePaths(['coverage.info'])).rejects.toThrow(
+        /matched a symlink, which is not allowed/,
+      );
+    } finally {
+      await fs.rm(secret, { recursive: true, force: true });
+    }
+  });
 });
