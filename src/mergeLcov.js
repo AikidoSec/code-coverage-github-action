@@ -13,10 +13,6 @@ export async function mergeLcov(paths) {
   const contents = [];
 
   for (const inputPath of paths) {
-    if (inputPath.includes('..') || path.isAbsolute(inputPath)) {
-      throw new Error('Invalid file path');
-    }
-
     contents.push(await fs.readFile(path.resolve(inputPath), 'utf8'));
   }
 

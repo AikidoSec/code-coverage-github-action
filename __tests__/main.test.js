@@ -5,6 +5,7 @@ import path from 'node:path';
 import { gunzipSync } from 'node:zlib';
 
 const mockInfo = jest.fn();
+const mockDebug = jest.fn();
 const mockSetFailed = jest.fn();
 const mockWarning = jest.fn();
 const mockGetInput = jest.fn();
@@ -20,6 +21,7 @@ function decodeCoverageContent(encoded) {
 
 jest.unstable_mockModule('@actions/core', () => ({
   info: mockInfo,
+  debug: mockDebug,
   setFailed: mockSetFailed,
   warning: mockWarning,
   getInput: mockGetInput,
@@ -58,6 +60,7 @@ describe('main.js security - single file path validation', () => {
 
     // Reset all mocks
     mockInfo.mockClear();
+    mockDebug.mockClear();
     mockSetFailed.mockClear();
     mockWarning.mockClear();
     mockGetInput.mockClear();
@@ -324,6 +327,54 @@ describe('main.js security - single file path validation', () => {
         await run();
 
         expect(mockSetFailed).toHaveBeenCalledWith(expect.stringContaining('Invalid file path'));
+        expect(mockPost).not.toHaveBeenCalled();
+      } finally {
+        process.chdir(previousCwd);
+      }
+    });
+  });
+
+  describe('glob support', () => {
+    it('expands a glob pattern and merges the matched reports', async () => {
+      const previousCwd = process.cwd();
+      process.chdir(tmpDir);
+
+      try {
+        await fs.mkdir('packages/a/coverage', { recursive: true });
+        await fs.mkdir('packages/b/coverage', { recursive: true });
+        await fs.writeFile(
+          'packages/a/coverage/lcov.info',
+          'TN:\nSF:src/a.js\nDA:1,5\nend_of_record\n',
+        );
+        await fs.writeFile(
+          'packages/b/coverage/lcov.info',
+          'TN:\nSF:src/b.js\nDA:1,3\nend_of_record\n',
+        );
+
+        mockGetInput.mockReturnValue('packages/*/coverage/lcov.info');
+
+        await run();
+
+        expect(mockSetFailed).not.toHaveBeenCalled();
+        expect(mockPost).toHaveBeenCalled();
+        expect(mockInfo).toHaveBeenCalledWith('Upload succeeded.');
+      } finally {
+        process.chdir(previousCwd);
+      }
+    });
+
+    it('fails when a glob pattern matches no files', async () => {
+      const previousCwd = process.cwd();
+      process.chdir(tmpDir);
+
+      try {
+        mockGetInput.mockReturnValue('packages/*/coverage/lcov.info');
+
+        await run();
+
+        expect(mockSetFailed).toHaveBeenCalledWith(
+          expect.stringContaining('No file(s) found matching'),
+        );
         expect(mockPost).not.toHaveBeenCalled();
       } finally {
         process.chdir(previousCwd);

@@ -7,7 +7,7 @@ branding:
 
 inputs:
   lcov-file-paths:
-    description: 'Path(s) to the LCOV coverage report(s). Separate multiple entries with newlines'
+    description: 'Path(s) or glob pattern(s) to the LCOV coverage report(s). Separate multiple entries with newlines'
     required: true
   fail-on-error:
     description: 'Fail the action if discovery or upload fails. Set to false to warn instead.'
