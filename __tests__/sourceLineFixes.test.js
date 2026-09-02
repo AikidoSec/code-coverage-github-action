@@ -31,6 +31,13 @@ describe('sourceLineFixes', () => {
     expect(await loadSourceLineFixes(tmpDir, 'missing.ts')).toBeNull();
   });
 
+  it('returns null for a tracked symlink instead of following it', async () => {
+    const linkPath = path.join(tmpDir, 'generated.js');
+    await fs.symlink('/dev/null', linkPath);
+
+    expect(await loadSourceLineFixes(tmpDir, 'generated.js')).toBeNull();
+  });
+
   it('drops DA, FN, and BRDA entries past eof', () => {
     const record = {
       sourcePath: 'mod.go',

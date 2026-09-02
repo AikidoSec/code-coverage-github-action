@@ -25,8 +25,12 @@ export async function mergeLcov(paths) {
     throw new Error('No coverage records found in inputs');
   }
 
-  const { sourceRoot, inputsWithoutRootDirectory } = alignPathRoots(contents);
   const git = await loadGitTrackedFiles();
+
+  const { sourceRoot, inputsWithoutRootDirectory } = git
+    ? { sourceRoot: null, inputsWithoutRootDirectory: null }
+    : alignPathRoots(contents);
+
   const resolveToGitPath = git ? createPathResolver(git.files) : null;
   const groups = new Map();
 
@@ -85,7 +89,6 @@ export async function mergeLcov(paths) {
   return mergedPath;
 }
 
-// Aikido rejects SF paths containing "..".
 function sanitizeSourcePath(sourcePath) {
   const normalized = path.posix.normalize(sourcePath.replace(/\\/g, '/'));
 
@@ -127,7 +130,7 @@ function alignPathRoots(contents) {
   let chosenRoot = null;
 
   for (const prefix of prefixes) {
-    const includesRootDirectory = (path) => path === prefix || path.startsWith(`${prefix}/`);
+    const includesRootDirectory = (p) => p === prefix || p.startsWith(`${prefix}/`);
 
     const inputsWithoutRootDirectory = new Set();
     let someInputIncludesRootDirectory = false;
@@ -270,17 +273,9 @@ function mergeSamePathHits(target, source) {
   }
 }
 
-// Prefer: git path match, then report without root directory, then densest coverage.
-function pickPrimaryRecord(records, inputsWithoutRootDirectory, gitPath) {
-  return [...records].sort((left, right) => {
-    if (gitPath) {
-      const leftIsGitPath = left.sourcePath === gitPath;
-      const rightIsGitPath = right.sourcePath === gitPath;
-      if (leftIsGitPath !== rightIsGitPath) {
-        return leftIsGitPath ? -1 : 1;
-      }
-    }
-
+// Prefer: report without root directory, then densest coverage.
+function pickPrimaryRecord(records, inputsWithoutRootDirectory) {
+  return records.sort((left, right) => {
     if (inputsWithoutRootDirectory) {
       const leftOmitsRootDirectory = inputsWithoutRootDirectory.has(left.inputIndex);
       const rightOmitsRootDirectory = inputsWithoutRootDirectory.has(right.inputIndex);
@@ -319,9 +314,20 @@ function mergeRecordGroup(records, inputsWithoutRootDirectory, gitPath = null) {
   }
 
   const pathRecords = [...byPath.values()];
-  const primary = pickPrimaryRecord(pathRecords, inputsWithoutRootDirectory, gitPath);
-  const outputPath = gitPath ?? primary.sourcePath;
-  const merged = createRecord(outputPath, primary.inputIndex);
+
+  // Same git-tracked file under different SF spellings (e.g. src/a.js vs
+  // packages/app/src/a.js) — union hits; line numbers refer to one source tree.
+  if (gitPath) {
+    const merged = createRecord(gitPath, pathRecords[0].inputIndex);
+    for (const record of pathRecords) {
+      mergeSamePathHits(merged, record);
+    }
+
+    return merged;
+  }
+
+  const primary = pickPrimaryRecord(pathRecords, inputsWithoutRootDirectory);
+  const merged = createRecord(primary.sourcePath, primary.inputIndex);
 
   mergeSamePathHits(merged, primary);
 

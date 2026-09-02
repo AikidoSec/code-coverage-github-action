@@ -69,7 +69,7 @@ function countSharedTrailingSegments(leftPath, rightPath) {
 }
 
 function preferClosestGitPath(coveragePath, candidates) {
-  return [...candidates].sort((left, right) => {
+  return candidates.sort((left, right) => {
     const sharedSegmentsDiff =
       countSharedTrailingSegments(coveragePath, right) -
       countSharedTrailingSegments(coveragePath, left);

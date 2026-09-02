@@ -92,7 +92,10 @@ describe('mergeLcov git integration', () => {
 
   it('resolves paths to git files and drops untracked coverage', async () => {
     await initGitRepo(tmpDir, ['src/app.ts']);
-    await fs.writeFile(path.join(tmpDir, 'src/app.ts'), 'export const a = 1;\nexport const b = 2;\n');
+    await fs.writeFile(
+      path.join(tmpDir, 'src/app.ts'),
+      'export const a = 1;\nexport const b = 2;\n',
+    );
 
     const job1 = `SF:src/app.ts
 DA:1,1
@@ -122,6 +125,39 @@ end_of_record
       expect(merged).toContain('DA:2,0');
       expect(merged).not.toContain('DA:9,5');
       expect(merged).not.toContain('generated');
+    } finally {
+      process.chdir(previousCwd);
+    }
+  });
+
+  it('keeps package-relative coverage when another report uses a monorepo packages/ prefix', async () => {
+    await initGitRepo(tmpDir, ['packages/app/src/a.js']);
+    await fs.writeFile(path.join(tmpDir, 'packages/app/src/a.js'), 'export const a = 1;\n');
+
+    const job1 = `SF:packages/app/src/a.js
+DA:1,1
+end_of_record
+`;
+    const job2 = `SF:src/a.js
+DA:1,3
+end_of_record
+`;
+
+    await fs.writeFile(path.join(tmpDir, 'job1.lcov'), job1);
+    await fs.writeFile(path.join(tmpDir, 'job2.lcov'), job2);
+
+    const previousCwd = process.cwd();
+    process.chdir(tmpDir);
+    try {
+      const { mergeLcov } = await import('../src/mergeLcov.js');
+      const mergedPath = await mergeLcov(['job1.lcov', 'job2.lcov']);
+      mergedDirs.push(path.dirname(mergedPath));
+      const merged = await fs.readFile(mergedPath, 'utf8');
+
+      expect(merged.match(/^SF:/gm)).toHaveLength(1);
+      expect(merged).toContain('SF:packages/app/src/a.js');
+      expect(merged).toContain('DA:1,3');
+      expect(merged).not.toContain('SF:packages/src/a.js');
     } finally {
       process.chdir(previousCwd);
     }
