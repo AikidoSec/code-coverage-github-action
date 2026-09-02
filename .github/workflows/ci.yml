@@ -1,10 +1,7 @@
 name: CI
 
 on:
-  pull_request:
-  push:
-    branches:
-      - main
+  push: {}
 
 jobs:
   build-and-test:
@@ -12,12 +9,13 @@ jobs:
     permissions:
       packages: write
       contents: write
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 24
           cache: npm
@@ -35,29 +33,6 @@ jobs:
 
       - name: Build
         run: npm run build
-
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage
-          path: coverage/
-
-  upload-coverage:
-    runs-on: open-source-releaser
-    needs: build-and-test
-    if: github.event_name == 'push'
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: coverage
-          path: coverage
 
       - name: Test Aikido Upload Code Coverage action in workflow with OIDC
         uses: ./
