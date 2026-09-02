@@ -14,16 +14,17 @@ Authentication uses GitHub OIDC (keyless). The job that runs this action must gr
 
 Run your tests with coverage first, then point this action at the generated LCOV file.
 
+Example YAML file:
+
 ```yaml
 name: Tests
 
-on: [push, pull_request]
+on: push
 
 jobs:
   test:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
       contents: read
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +35,24 @@ jobs:
 
       - run: npm ci
       - run: npm test -- --coverage # produces coverage/lcov.info
+
+      - uses: actions/upload-artifact@7
+        with:
+          name: coverage
+          path: coverage/
+
+  upload-coverage:
+    needs: test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # required for upload
+      contents: read # required for upload
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: coverage
+          path: coverage
 
       - name: Upload coverage to Aikido
         uses: AikidoSec/code-coverage-github-action@v1
@@ -65,10 +84,12 @@ reports in a final job, then upload once to Aikido.
 Upload from every test job separately would send partial coverage and can race — always
 merge into a single upload per commit.
 
+Example YAML file:
+
 ```yaml
 name: Tests
 
-on: [push, pull_request]
+on: push
 
 jobs:
   test:
@@ -93,6 +114,7 @@ jobs:
 
   upload-coverage:
     needs: test
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -134,15 +156,34 @@ so GitHub can mint a JWT for Aikido. Setting any `permissions` key resets the re
 none, so also grant `contents: read` if the job checks out the repository.
 
 ```yaml
+on: push
+
 jobs:
   test:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
       contents: read
     steps:
       - uses: actions/checkout@v4
       - run: npm test -- --coverage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+
+  upload-coverage:
+    needs: test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # required for upload
+      contents: read # required for upload
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage
+          path: coverage
 
       - name: Upload coverage to Aikido
         uses: AikidoSec/code-coverage-github-action@v1

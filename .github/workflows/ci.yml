@@ -12,7 +12,6 @@ jobs:
     permissions:
       packages: write
       contents: write
-      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,6 +35,29 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+
+  upload-coverage:
+    runs-on: open-source-releaser
+    needs: build-and-test
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage
+          path: coverage
 
       - name: Test Aikido Upload Code Coverage action in workflow with OIDC
         uses: ./
