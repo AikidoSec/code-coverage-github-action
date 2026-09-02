@@ -1,30 +1,83 @@
 // Merge multiple LCOV inputs into one file for upload. Concatenation is not enough:
-// monorepos and sharded CI jobs often emit separate reports for the same source path
-// (SF:). We group by path and sum per-line/function/branch hit counts so one record
-// per file reflects combined coverage across all inputs.
+// monorepos and CI shards often emit separate reports for the same source path (SF:).
+// Same SF path → max hits per line. Same path stem with different suffixes → keep the
+// primary record's line map only; foreign instrumentation must not change hits or inflate
+// LF. With git available, SF paths resolve via Codecov-style git ls-files matching
+// (unmatched paths dropped) and coverage lines past EOF are removed.
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { createPathResolver, loadGitTrackedFiles, pathStem } from './gitTrackedFiles.js';
+import { applySourceLineFixes, loadSourceLineFixes } from './sourceLineFixes.js';
 
 export async function mergeLcov(paths) {
-  const coverageBySource = new Map();
+  const contents = [];
 
   for (const inputPath of paths) {
-    const resolvedPath = path.resolve(inputPath);
-
     if (inputPath.includes('..') || path.isAbsolute(inputPath)) {
       throw new Error('Invalid file path');
     }
 
-    const content = await fs.readFile(resolvedPath, 'utf8');
-    parseIntoMap(content, coverageBySource);
+    contents.push(await fs.readFile(path.resolve(inputPath), 'utf8'));
   }
 
-  if (coverageBySource.size === 0) {
+  if (contents.length === 0) {
     throw new Error('No coverage records found in inputs');
   }
 
-  const merged = [...coverageBySource.values()].map(fileCoverageToLcov).join('\n');
+  const { sourceRoot, inputsWithoutRootDirectory } = alignPathRoots(contents);
+  const git = await loadGitTrackedFiles();
+  const resolveToGitPath = git ? createPathResolver(git.files) : null;
+  const groups = new Map();
+
+  for (const [inputIndex, content] of contents.entries()) {
+    for (const record of parseRecords(content, sourceRoot, inputIndex)) {
+      let groupKey;
+      let gitPath = null;
+
+      if (resolveToGitPath) {
+        gitPath = resolveToGitPath(record.sourcePath);
+        if (!gitPath) {
+          continue;
+        }
+
+        groupKey = gitPath;
+      } else {
+        groupKey = pathStem(record.sourcePath);
+      }
+
+      const group = groups.get(groupKey) ?? { records: [], gitPath };
+      group.records.push(record);
+      if (gitPath) {
+        group.gitPath = gitPath;
+      }
+
+      groups.set(groupKey, group);
+    }
+  }
+
+  if (groups.size === 0) {
+    throw new Error('No coverage records found in inputs');
+  }
+
+  const mergedRecords = [];
+
+  for (const { records, gitPath } of groups.values()) {
+    const merged = mergeRecordGroup(records, inputsWithoutRootDirectory, gitPath);
+    if (git?.root) {
+      applySourceLineFixes(merged, await loadSourceLineFixes(git.root, merged.sourcePath));
+    }
+
+    if (merged.lines.size > 0 || merged.functions.size > 0 || merged.branches.size > 0) {
+      mergedRecords.push(merged);
+    }
+  }
+
+  if (mergedRecords.length === 0) {
+    throw new Error('No coverage records found in inputs');
+  }
+
+  const merged = mergedRecords.map(recordToLcov).join('\n');
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'aikido-merged-coverage-'));
   const mergedPath = path.join(tempDir, 'lcov.info');
   await fs.writeFile(mergedPath, merged, 'utf8');
@@ -32,20 +85,108 @@ export async function mergeLcov(paths) {
   return mergedPath;
 }
 
-function splitDirective(line) {
-  const separator = line.indexOf(':');
-  if (separator === -1) {
-    return ['', ''];
+// Aikido rejects SF paths containing "..".
+function sanitizeSourcePath(sourcePath) {
+  const normalized = path.posix.normalize(sourcePath.replace(/\\/g, '/'));
+
+  if (path.posix.isAbsolute(normalized) || /^[a-zA-Z]:/.test(normalized)) {
+    throw new Error(`Invalid source path in coverage report: ${sourcePath}`);
   }
 
-  return [line.slice(0, separator), line.slice(separator + 1)];
+  const safe = normalized.replace(/^(?:\.\.\/)+/, '').replace(/^\.\//, '');
+
+  if (!safe || safe.includes('..')) {
+    throw new Error(`Invalid source path in coverage report: ${sourcePath}`);
+  }
+
+  return safe;
 }
 
-// Walk each record and accumulate DA/FN/FNDA/BRDA into coverageBySource. Summary
-// directives (LF, LH, BRF, BRH) are ignored here—they are per-input totals and
-// would be wrong after merge; fileCoverageToLcov recomputes them from aggregates.
-function parseIntoMap(content, coverageBySource) {
-  let current = null;
+// One report may use library/foo while another uses foo (different coverage cwd).
+// If an entire report is consistently prefixed and another is not, prepend that prefix.
+function alignPathRoots(contents) {
+  if (contents.length < 2) {
+    return { sourceRoot: null, inputsWithoutRootDirectory: null };
+  }
+
+  const pathsByFile = contents.map((content) =>
+    [...content.matchAll(/^SF:(.+)$/gm)].map((match) => sanitizeSourcePath(match[1])),
+  );
+
+  // Find all unique path prefixes.
+  const prefixes = new Set();
+  for (const paths of pathsByFile) {
+    for (const sourcePath of paths) {
+      const slash = sourcePath.indexOf('/');
+      if (slash > 0) {
+        prefixes.add(sourcePath.slice(0, slash));
+      }
+    }
+  }
+
+  let chosenRoot = null;
+
+  for (const prefix of prefixes) {
+    const includesRootDirectory = (path) => path === prefix || path.startsWith(`${prefix}/`);
+
+    const inputsWithoutRootDirectory = new Set();
+    let someInputIncludesRootDirectory = false;
+    let prefixedPathCount = 0;
+
+    for (const [index, paths] of pathsByFile.entries()) {
+      if (paths.length === 0) {
+        continue;
+      }
+
+      if (paths.every(includesRootDirectory)) {
+        someInputIncludesRootDirectory = true;
+        prefixedPathCount += paths.length;
+      } else if (paths.every((p) => !includesRootDirectory(p))) {
+        inputsWithoutRootDirectory.add(index);
+      }
+    }
+
+    if (!someInputIncludesRootDirectory || inputsWithoutRootDirectory.size === 0) {
+      continue;
+    }
+
+    const shouldChoosePrefix =
+      !chosenRoot ||
+      prefix.length > chosenRoot.sourceRoot.length ||
+      (prefix.length === chosenRoot.sourceRoot.length &&
+        prefixedPathCount > chosenRoot.prefixedPathCount);
+
+    if (shouldChoosePrefix) {
+      chosenRoot = { sourceRoot: prefix, inputsWithoutRootDirectory, prefixedPathCount };
+    }
+  }
+
+  if (!chosenRoot) {
+    return { sourceRoot: null, inputsWithoutRootDirectory: null };
+  }
+
+  return {
+    sourceRoot: chosenRoot.sourceRoot,
+    inputsWithoutRootDirectory: chosenRoot.inputsWithoutRootDirectory,
+  };
+}
+
+function withSourceRoot(rawPath, sourceRoot) {
+  let sourcePath = sanitizeSourcePath(rawPath);
+  if (sourceRoot && !sourcePath.startsWith(`${sourceRoot}/`)) {
+    sourcePath = `${sourceRoot}/${sourcePath}`;
+  }
+
+  return sourcePath;
+}
+
+function createRecord(sourcePath, inputIndex) {
+  return { sourcePath, inputIndex, lines: new Map(), functions: new Map(), branches: new Map() };
+}
+
+function parseRecords(content, sourceRoot, inputIndex) {
+  const records = [];
+  let record = null;
 
   for (const raw of content.split(/\r?\n/)) {
     const line = raw.trim();
@@ -53,85 +194,177 @@ function parseIntoMap(content, coverageBySource) {
       continue;
     }
 
-    const [tag, value] = splitDirective(line);
+    if (line === 'end_of_record') {
+      if (record) {
+        records.push(record);
+      }
+
+      record = null;
+      continue;
+    }
+
+    const colon = line.indexOf(':');
+    const tag = colon === -1 ? '' : line.slice(0, colon);
+    const value = colon === -1 ? '' : line.slice(colon + 1);
 
     if (tag === 'SF') {
-      current = coverageBySource.get(value) ?? emptyFileCoverage(value);
-      coverageBySource.set(value, current);
+      record = createRecord(withSourceRoot(value, sourceRoot), inputIndex);
       continue;
     }
 
-    if (!current) {
-      continue;
-    }
-
-    if (line === 'end_of_record') {
-      current = null;
+    if (!record) {
       continue;
     }
 
     if (tag === 'DA') {
-      const [lineNumber, hits] = value.split(',');
-      addLineHits(current, Number(lineNumber), Number(hits));
-      continue;
-    }
-
-    if (tag === 'FN') {
-      const parts = value.split(',');
-      const name = parts.slice(1).join(',');
-      addFunctionHits(current, name, Number(parts[0]), 0);
-      continue;
-    }
-
-    if (tag === 'FNDA') {
-      const comma = value.indexOf(',');
-      addFunctionHits(current, value.slice(comma + 1), null, Number(value.slice(0, comma)));
-      continue;
-    }
-
-    if (tag === 'BRDA') {
-      const [l, block, branch, taken] = value.split(',');
-      addBranchHits(current, Number(l), block, branch, taken === '-' ? '-' : Number(taken));
+      mergeLineHit(record, value);
+    } else if (tag === 'FN') {
+      mergeFunctionDefinition(record, value);
+    } else if (tag === 'FNDA') {
+      mergeFunctionHit(record, value);
+    } else if (tag === 'BRDA') {
+      mergeBranchHit(record, value);
     }
   }
+
+  return records;
 }
 
-function emptyFileCoverage(sourcePath) {
-  return { sourcePath, lines: new Map(), functions: new Map(), branches: new Map() };
-}
-
-function addLineHits(coverage, line, hits) {
-  coverage.lines.set(line, (coverage.lines.get(line) || 0) + hits);
-}
-
-function addFunctionHits(coverage, name, line, hits) {
-  const prev = coverage.functions.get(name) || { line: 0, hits: 0 };
-
-  coverage.functions.set(name, {
-    line: line ?? prev.line,
-    hits: prev.hits + hits,
-  });
-}
-
-// LCOV uses "-" when a branch was never executed. Keep "-" only if every input
-// agrees; once any shard took the branch, sum numeric hit counts instead.
-function addBranchHits(coverage, line, block, branch, taken) {
-  const key = `${line}\0${block}\0${branch}`;
-  const prev = coverage.branches.get(key);
-
-  if (taken === '-' && (prev === '-' || prev === undefined)) {
-    coverage.branches.set(key, '-');
-    return;
+function countLinesHit(record) {
+  let linesHit = 0;
+  for (const hits of record.lines.values()) {
+    if (hits > 0) {
+      linesHit++;
+    }
   }
 
-  const prevHits = prev === '-' || prev === undefined ? 0 : prev;
+  return linesHit;
+}
+
+function mergeMaxBranch(prev, taken) {
+  if (taken === '-' && (prev === undefined || prev === '-')) {
+    return '-';
+  }
+
+  const prevHits = prev === undefined || prev === '-' ? 0 : prev;
   const newHits = taken === '-' ? 0 : taken;
-  coverage.branches.set(key, prevHits + newHits);
+  return Math.max(prevHits, newHits);
 }
 
-// Serialize one merged record per source file. LF/LH and BRF/BRH are derived from
-// the aggregated maps so totals stay consistent with the summed DA/FNDA/BRDA data.
-function fileCoverageToLcov(coverage) {
+// Full union (same SF path / CI shards).
+function mergeSamePathHits(target, source) {
+  for (const [lineNo, hits] of source.lines) {
+    target.lines.set(lineNo, Math.max(target.lines.get(lineNo) || 0, hits));
+  }
+
+  for (const [name, { line, hits }] of source.functions) {
+    const prev = target.functions.get(name) || { line: 0, hits: 0 };
+    target.functions.set(name, {
+      line: line || prev.line,
+      hits: Math.max(prev.hits, hits),
+    });
+  }
+
+  for (const [key, taken] of source.branches) {
+    target.branches.set(key, mergeMaxBranch(target.branches.get(key), taken));
+  }
+}
+
+// Prefer: git path match, then report without root directory, then densest coverage.
+function pickPrimaryRecord(records, inputsWithoutRootDirectory, gitPath) {
+  return [...records].sort((left, right) => {
+    if (gitPath) {
+      const leftIsGitPath = left.sourcePath === gitPath;
+      const rightIsGitPath = right.sourcePath === gitPath;
+      if (leftIsGitPath !== rightIsGitPath) {
+        return leftIsGitPath ? -1 : 1;
+      }
+    }
+
+    if (inputsWithoutRootDirectory) {
+      const leftOmitsRootDirectory = inputsWithoutRootDirectory.has(left.inputIndex);
+      const rightOmitsRootDirectory = inputsWithoutRootDirectory.has(right.inputIndex);
+      if (leftOmitsRootDirectory !== rightOmitsRootDirectory) {
+        return leftOmitsRootDirectory ? -1 : 1;
+      }
+    }
+
+    const lineDiff = right.lines.size - left.lines.size;
+    if (lineDiff !== 0) {
+      return lineDiff;
+    }
+
+    const hitDiff = countLinesHit(right) - countLinesHit(left);
+    if (hitDiff !== 0) {
+      return hitDiff;
+    }
+
+    return left.sourcePath.localeCompare(right.sourcePath);
+  })[0];
+}
+
+function mergeRecordGroup(records, inputsWithoutRootDirectory, gitPath = null) {
+  const byPath = new Map();
+
+  for (const record of records) {
+    const existing = byPath.get(record.sourcePath);
+    if (existing) {
+      mergeSamePathHits(existing, record);
+      continue;
+    }
+
+    const copy = createRecord(record.sourcePath, record.inputIndex);
+    mergeSamePathHits(copy, record);
+    byPath.set(record.sourcePath, copy);
+  }
+
+  const pathRecords = [...byPath.values()];
+  const primary = pickPrimaryRecord(pathRecords, inputsWithoutRootDirectory, gitPath);
+  const outputPath = gitPath ?? primary.sourcePath;
+  const merged = createRecord(outputPath, primary.inputIndex);
+
+  mergeSamePathHits(merged, primary);
+
+  // Different suffix (e.g. .js vs .ts): keep primary line map only — do not overlay
+  // foreign hits; line numbers are not comparable across instrumentations.
+  return merged;
+}
+
+function mergeLineHit(record, value) {
+  const [lineNo, hits] = value.split(',');
+  const n = Number(lineNo);
+  const hitCount = Number(hits);
+
+  record.lines.set(n, Math.max(record.lines.get(n) || 0, hitCount));
+}
+
+function mergeFunctionDefinition(record, value) {
+  const comma = value.indexOf(',');
+  const line = Number(value.slice(0, comma));
+  const name = value.slice(comma + 1);
+  const prev = record.functions.get(name) || { line: 0, hits: 0 };
+
+  record.functions.set(name, { line, hits: prev.hits });
+}
+
+function mergeFunctionHit(record, value) {
+  const comma = value.indexOf(',');
+  const hits = Number(value.slice(0, comma));
+  const name = value.slice(comma + 1);
+  const prev = record.functions.get(name) || { line: 0, hits: 0 };
+
+  record.functions.set(name, { line: prev.line, hits: Math.max(prev.hits, hits) });
+}
+
+function mergeBranchHit(record, value) {
+  const [lineNo, block, branch, taken] = value.split(',');
+  const key = `${lineNo}\0${block}\0${branch}`;
+  const hit = taken === '-' ? '-' : Number(taken);
+
+  record.branches.set(key, mergeMaxBranch(record.branches.get(key), hit));
+}
+
+function recordToLcov(coverage) {
   const lines = [`SF:${coverage.sourcePath}`];
 
   for (const [name, { line }] of coverage.functions) {
@@ -141,7 +374,6 @@ function fileCoverageToLcov(coverage) {
   let functionsHit = 0;
   for (const [name, { hits }] of coverage.functions) {
     lines.push(`FNDA:${hits},${name}`);
-
     if (hits > 0) {
       functionsHit++;
     }
@@ -151,20 +383,9 @@ function fileCoverageToLcov(coverage) {
     lines.push(`FNF:${coverage.functions.size}`, `FNH:${functionsHit}`);
   }
 
-  const branchKeys = [...coverage.branches.keys()].sort((a, b) => {
-    const [lineA, blockA, branchA] = a.split('\0');
-    const [lineB, blockB, branchB] = b.split('\0');
-
-    return (
-      Number(lineA) - Number(lineB) ||
-      blockA.localeCompare(blockB) ||
-      branchA.localeCompare(branchB)
-    );
-  });
-
-  for (const key of branchKeys) {
-    const [line, block, branch] = key.split('\0');
-    lines.push(`BRDA:${line},${block},${branch},${coverage.branches.get(key)}`);
+  for (const key of [...coverage.branches.keys()].sort()) {
+    const [lineNo, block, branch] = key.split('\0');
+    lines.push(`BRDA:${lineNo},${block},${branch},${coverage.branches.get(key)}`);
   }
 
   if (coverage.branches.size > 0) {
@@ -173,11 +394,9 @@ function fileCoverageToLcov(coverage) {
   }
 
   let linesHit = 0;
-  const linesKeys = [...coverage.lines.keys()].sort((a, b) => a - b);
-  for (const line of linesKeys) {
-    const hits = coverage.lines.get(line);
-    lines.push(`DA:${line},${hits}`);
-
+  for (const lineNo of [...coverage.lines.keys()].sort((a, b) => a - b)) {
+    const hits = coverage.lines.get(lineNo);
+    lines.push(`DA:${lineNo},${hits}`);
     if (hits > 0) {
       linesHit++;
     }
