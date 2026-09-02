@@ -16,39 +16,39 @@ function assertSafePattern(pattern) {
   }
 }
 
+async function matchPattern(pattern, cwd) {
+  assertSafePattern(pattern);
+
+  const globber = await glob.create(pattern, {
+    followSymbolicLinks: false,
+    matchDirectories: false,
+  });
+  const matches = await globber.glob();
+
+  if (matches.length === 0) {
+    throw new Error(`No file(s) found matching "${pattern}"`);
+  }
+
+  return matches.sort().map((match) => {
+    const resolvedPath = path.resolve(match);
+    const relativePath = path.relative(cwd, resolvedPath);
+
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+      throw new Error(`Invalid file path: "${pattern}" resolved outside the workspace`);
+    }
+
+    return resolvedPath;
+  });
+}
+
 // Every pattern must match at least one file, so a typo fails loudly instead of silently dropping coverage.
 export async function resolveLcovFilePaths(patterns) {
   const cwd = process.cwd();
-  const seen = new Set();
   const resolvedPaths = [];
 
   for (const pattern of patterns) {
-    assertSafePattern(pattern);
-
-    const globber = await glob.create(pattern, {
-      followSymbolicLinks: false,
-      matchDirectories: false,
-    });
-    const matches = await globber.glob();
-
-    if (matches.length === 0) {
-      throw new Error(`No file(s) found matching "${pattern}"`);
-    }
-
-    for (const match of matches.sort()) {
-      const resolvedPath = path.resolve(match);
-      const relativePath = path.relative(cwd, resolvedPath);
-
-      if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-        throw new Error(`Invalid file path: "${pattern}" resolved outside the workspace`);
-      }
-
-      if (!seen.has(resolvedPath)) {
-        seen.add(resolvedPath);
-        resolvedPaths.push(resolvedPath);
-      }
-    }
+    resolvedPaths.push(...(await matchPattern(pattern, cwd)));
   }
 
-  return resolvedPaths;
+  return [...new Set(resolvedPaths)];
 }
