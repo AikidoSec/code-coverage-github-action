@@ -69,22 +69,20 @@ function countSharedTrailingSegments(leftPath, rightPath) {
 }
 
 function preferClosestGitPath(coveragePath, candidates) {
-  return candidates.sort((left, right) => {
+  const ranked = [...candidates].sort((left, right) => {
     const sharedSegmentsDiff =
       countSharedTrailingSegments(coveragePath, right) -
       countSharedTrailingSegments(coveragePath, left);
-
     if (sharedSegmentsDiff !== 0) {
       return sharedSegmentsDiff;
     }
-
-    const lengthDiff = left.length - right.length;
-    if (lengthDiff !== 0) {
-      return lengthDiff;
-    }
-
-    return left.localeCompare(right);
-  })[0];
+    return left.length - right.length;
+  });
+  const [best, next] = ranked;
+  if (next && countSharedTrailingSegments(coveragePath, best) === countSharedTrailingSegments(coveragePath, next) && best.length === next.length) {
+    return null;
+  }
+  return best;
 }
 
 function findMatchingGitPaths(trackedFiles, coveragePath) {
