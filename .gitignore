@@ -8,3 +8,5 @@ coverage/
 !.vscode/launch.json
 .env
 dist
+benchmark/
+

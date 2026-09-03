@@ -2,12 +2,12 @@
 // monorepos and CI shards often emit separate reports for the same source path (SF:).
 // Same SF path → max hits per line. Same path stem with different suffixes → keep the
 // primary record's line map only; foreign instrumentation must not change hits or inflate
-// LF. With git available, SF paths resolve via Codecov-style git ls-files matching
-// (unmatched paths dropped) and coverage lines past EOF are removed.
+// LF. When a project file network is available, SF paths resolve via Codecov-style
+// suffix matching (unmatched paths dropped) and coverage lines past EOF are removed.
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createPathResolver, loadGitTrackedFiles, pathStem } from './gitTrackedFiles.js';
+import { createPathResolver, loadProjectFiles, pathStem } from './projectFiles.js';
 import { applySourceLineFixes, loadSourceLineFixes } from './sourceLineFixes.js';
 
 export async function mergeLcov(paths) {
@@ -25,35 +25,37 @@ export async function mergeLcov(paths) {
     throw new Error('No coverage records found in inputs');
   }
 
-  const git = await loadGitTrackedFiles();
+  const project = await loadProjectFiles();
 
-  const { sourceRoot, inputsWithoutRootDirectory } = git
+  // Project files already map package-relative SF paths (src/a.js → packages/app/src/a.js).
+  // Skipping align avoids rewriting those to a wrong first-component root.
+  const { sourceRoot, inputsWithoutRootDirectory } = project
     ? { sourceRoot: null, inputsWithoutRootDirectory: null }
     : alignPathRoots(contents);
 
-  const resolveToGitPath = git ? createPathResolver(git.files) : null;
+  const resolveToProjectPath = project ? createPathResolver(project.files) : null;
   const groups = new Map();
 
   for (const [inputIndex, content] of contents.entries()) {
     for (const record of parseRecords(content, sourceRoot, inputIndex)) {
       let groupKey;
-      let gitPath = null;
+      let projectPath = null;
 
-      if (resolveToGitPath) {
-        gitPath = resolveToGitPath(record.sourcePath);
-        if (!gitPath) {
+      if (resolveToProjectPath) {
+        projectPath = resolveToProjectPath(record.sourcePath);
+        if (!projectPath) {
           continue;
         }
 
-        groupKey = gitPath;
+        groupKey = projectPath;
       } else {
         groupKey = pathStem(record.sourcePath);
       }
 
-      const group = groups.get(groupKey) ?? { records: [], gitPath };
+      const group = groups.get(groupKey) ?? { records: [], projectPath };
       group.records.push(record);
-      if (gitPath) {
-        group.gitPath = gitPath;
+      if (projectPath) {
+        group.projectPath = projectPath;
       }
 
       groups.set(groupKey, group);
@@ -66,10 +68,10 @@ export async function mergeLcov(paths) {
 
   const mergedRecords = [];
 
-  for (const { records, gitPath } of groups.values()) {
-    const merged = mergeRecordGroup(records, inputsWithoutRootDirectory, gitPath);
-    if (git?.root) {
-      applySourceLineFixes(merged, await loadSourceLineFixes(git.root, merged.sourcePath));
+  for (const { records, projectPath } of groups.values()) {
+    const merged = mergeRecordGroup(records, inputsWithoutRootDirectory, projectPath);
+    if (project?.root) {
+      applySourceLineFixes(merged, await loadSourceLineFixes(project.root, merged.sourcePath));
     }
 
     if (merged.lines.size > 0 || merged.functions.size > 0 || merged.branches.size > 0) {
@@ -298,7 +300,7 @@ function pickPrimaryRecord(records, inputsWithoutRootDirectory) {
   })[0];
 }
 
-function mergeRecordGroup(records, inputsWithoutRootDirectory, gitPath = null) {
+function mergeRecordGroup(records, inputsWithoutRootDirectory, projectPath = null) {
   const byPath = new Map();
 
   for (const record of records) {
@@ -315,10 +317,10 @@ function mergeRecordGroup(records, inputsWithoutRootDirectory, gitPath = null) {
 
   const pathRecords = [...byPath.values()];
 
-  // Same git-tracked file under different SF spellings (e.g. src/a.js vs
+  // Same project file under different SF spellings (e.g. src/a.js vs
   // packages/app/src/a.js) — union hits; line numbers refer to one source tree.
-  if (gitPath) {
-    const merged = createRecord(gitPath, pathRecords[0].inputIndex);
+  if (projectPath) {
+    const merged = createRecord(projectPath, pathRecords[0].inputIndex);
     for (const record of pathRecords) {
       mergeSamePathHits(merged, record);
     }

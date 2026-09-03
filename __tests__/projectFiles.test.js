@@ -1,35 +1,10 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createPathResolver, pathStem } from '../src/gitTrackedFiles.js';
+import { createPathResolver, loadProjectFiles, pathStem } from '../src/projectFiles.js';
 
-const execFileAsync = promisify(execFile);
-
-async function initGitRepo(dir, trackedFiles) {
-  const env = {
-    ...process.env,
-    GIT_AUTHOR_NAME: 'test',
-    GIT_AUTHOR_EMAIL: 'test@example.com',
-    GIT_COMMITTER_NAME: 'test',
-    GIT_COMMITTER_EMAIL: 'test@example.com',
-  };
-
-  await execFileAsync('git', ['init'], { cwd: dir });
-
-  for (const filePath of trackedFiles) {
-    const absolute = path.join(dir, filePath);
-    await fs.mkdir(path.dirname(absolute), { recursive: true });
-    await fs.writeFile(absolute, 'export {}\n');
-  }
-
-  await execFileAsync('git', ['add', ...trackedFiles], { cwd: dir });
-  await execFileAsync('git', ['commit', '-m', 'init'], { cwd: dir, env });
-}
-
-describe('gitTrackedFiles', () => {
-  it('resolves coverage paths to git files by path suffix', () => {
+describe('projectFiles', () => {
+  it('resolves coverage paths to project files by path suffix', () => {
     const resolve = createPathResolver([
       'library/agent/Agent.ts',
       'library/helpers/foo.ts',
@@ -44,7 +19,7 @@ describe('gitTrackedFiles', () => {
     expect(resolve('library/helpers/generated/urlencoded.js')).toBeNull();
   });
 
-  it('does not remap a different file extension onto a git path', () => {
+  it('does not remap a different file extension onto a project path', () => {
     const resolve = createPathResolver([
       'library/agent/Agent.ts',
       'library/agent/hooks/instrumentation/injectedFunctions.mjs',
@@ -68,19 +43,58 @@ describe('gitTrackedFiles', () => {
     expect(resolve('a/index.ts')).toBe('packages/a/index.ts');
   });
 
-  it('exposes path stems for non-git merge grouping', () => {
+  it('exposes path stems for merge grouping without a project file network', () => {
     expect(pathStem('src/widget.js')).toBe('src/widget');
     expect(pathStem('src/widget.d.ts')).toBe('src/widget.d');
     expect(pathStem('src/pkg/handler.py')).toBe('src/pkg/handler');
   });
+
+  it('walks the filesystem and honors hardcoded ignores plus .gitignore', async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'project-files-'));
+    try {
+      await fs.mkdir(path.join(tmpDir, 'src'), { recursive: true });
+      await fs.mkdir(path.join(tmpDir, 'node_modules/pkg'), { recursive: true });
+      await fs.mkdir(path.join(tmpDir, 'tmp'), { recursive: true });
+      await fs.writeFile(path.join(tmpDir, 'src/app.ts'), 'export {}\n');
+      await fs.writeFile(path.join(tmpDir, 'node_modules/pkg/index.js'), 'module.exports = {}\n');
+      await fs.writeFile(path.join(tmpDir, 'tmp/scratch.js'), 'export {}\n');
+      await fs.writeFile(path.join(tmpDir, '.gitignore'), 'tmp/\n');
+
+      const project = await loadProjectFiles(tmpDir);
+      expect(project.root).toBe(path.resolve(tmpDir));
+      expect(project.files).toContain('src/app.ts');
+      expect(project.files).not.toContain('.gitignore');
+      expect(project.files).not.toContain('node_modules/pkg/index.js');
+      expect(project.files).not.toContain('tmp/scratch.js');
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('applies nested .gitignore rules under subdirectories', async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'project-files-nested-'));
+    try {
+      await fs.mkdir(path.join(tmpDir, 'packages/app/src'), { recursive: true });
+      await fs.mkdir(path.join(tmpDir, 'packages/app/generated'), { recursive: true });
+      await fs.writeFile(path.join(tmpDir, 'packages/app/src/a.js'), 'export const a = 1;\n');
+      await fs.writeFile(path.join(tmpDir, 'packages/app/generated/out.js'), 'export {}\n');
+      await fs.writeFile(path.join(tmpDir, 'packages/app/.gitignore'), 'generated/\n');
+
+      const project = await loadProjectFiles(tmpDir);
+      expect(project.files).toContain('packages/app/src/a.js');
+      expect(project.files).not.toContain('packages/app/generated/out.js');
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
 });
 
-describe('mergeLcov git integration', () => {
+describe('mergeLcov project file integration', () => {
   let tmpDir;
   const mergedDirs = [];
 
   beforeEach(async () => {
-    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'merge-lcov-git-'));
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'merge-lcov-project-'));
   });
 
   afterEach(async () => {
@@ -90,8 +104,8 @@ describe('mergeLcov git integration', () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
-  it('resolves paths to git files and drops untracked coverage', async () => {
-    await initGitRepo(tmpDir, ['src/app.ts']);
+  it('resolves paths to project files and drops missing coverage targets', async () => {
+    await fs.mkdir(path.join(tmpDir, 'src'), { recursive: true });
     await fs.writeFile(
       path.join(tmpDir, 'src/app.ts'),
       'export const a = 1;\nexport const b = 2;\n',
@@ -131,7 +145,7 @@ end_of_record
   });
 
   it('keeps package-relative coverage when another report uses a monorepo packages/ prefix', async () => {
-    await initGitRepo(tmpDir, ['packages/app/src/a.js']);
+    await fs.mkdir(path.join(tmpDir, 'packages/app/src'), { recursive: true });
     await fs.writeFile(path.join(tmpDir, 'packages/app/src/a.js'), 'export const a = 1;\n');
 
     const job1 = `SF:packages/app/src/a.js
