@@ -31,7 +31,8 @@
   },
   "dependencies": {
     "@actions/core": "3.0.1",
-    "@actions/http-client": "4.0.1"
+    "@actions/http-client": "4.0.1",
+    "ignore": "^7.0.8"
   },
   "devDependencies": {
     "@github/local-action": "7.0.1",
