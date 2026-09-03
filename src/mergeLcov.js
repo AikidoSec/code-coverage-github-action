@@ -27,7 +27,7 @@ export async function mergeLcov(paths) {
 
   const project = await loadProjectFiles();
 
-  // Normalize absolute runner paths before parsing
+  // Normalize runner-specific absolute paths so records can be matched to project files.
   const repositoryRoot = process.env.GITHUB_WORKSPACE ?? project?.root ?? process.cwd();
   const normalizedContents = contents.map((content) =>
     normalizeLcovSourcePaths(content, repositoryRoot),
