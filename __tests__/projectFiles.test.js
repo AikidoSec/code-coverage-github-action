@@ -74,10 +74,7 @@ describe('projectFiles', () => {
   });
 
   it('prefers the candidate with more shared trailing segments', () => {
-    const resolve = createPathResolver([
-      'packages/a/src/util.js',
-      'packages/b/lib/util.js',
-    ]);
+    const resolve = createPathResolver(['packages/a/src/util.js', 'packages/b/lib/util.js']);
 
     expect(resolve('a/src/util.js')).toBe('packages/a/src/util.js');
   });
