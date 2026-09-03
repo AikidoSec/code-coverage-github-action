@@ -44,8 +44,8 @@ const HARDCODED_IGNORES = [
 ];
 
 // Walk the repo and return relative file paths, applying hardcoded ignores + .gitignore.
-export async function loadProjectFiles(cwd = process.cwd()) {
-  const root = path.resolve(cwd);
+export async function loadProjectFiles() {
+  const root = await findGitRoot(process.cwd());
   const ignoreManager = ignore().add(HARDCODED_IGNORES);
 
   try {
@@ -59,6 +59,27 @@ export async function loadProjectFiles(cwd = process.cwd()) {
 
   const projectFiles = files.filter(isLikelySourceFile);
   return projectFiles.length === 0 ? null : { root, files: projectFiles };
+}
+
+async function findGitRoot(startDir) {
+  const start = path.resolve(startDir);
+  let dir = start;
+
+  while (path.dirname(dir) !== dir) {
+    try {
+      await fs.access(path.join(dir, '.git'));
+      return dir;
+    } catch {
+      dir = path.dirname(dir);
+    }
+  }
+
+  try {
+    await fs.access(path.join(dir, '.git'));
+    return dir;
+  } catch {
+    return start;
+  }
 }
 
 // Skip coverage report files and .gitignore — not useful as source matches.
@@ -117,8 +138,10 @@ async function collectFiles(absoluteDir, relativeDir, ignoreStack, files) {
   }
 }
 
-// True if any .gitignore in the stack ignores this path (path is relative to that .gitignore).
+// Git last-match: walk root → nested; a later matching rule (including !negation) wins.
 function isIgnored(relativePath, isDirectory, stack) {
+  let ignored = false;
+
   for (const { base, ig } of stack) {
     const testPath = base ? relativePath.slice(base.length + 1) : relativePath;
 
@@ -126,12 +149,30 @@ function isIgnored(relativePath, isDirectory, stack) {
       continue;
     }
 
-    if (ig.ignores(testPath) || (isDirectory && ig.ignores(`${testPath}/`))) {
-      return true;
+    const result = ignoreDecision(ig, testPath, isDirectory);
+
+    if (result.ignored) {
+      ignored = true;
+    } else if (result.unignored) {
+      ignored = false;
     }
   }
 
-  return false;
+  return ignored;
+}
+
+// Directory patterns end with "/"; node-ignore treats "foo" as a file unless we also test "foo/".
+function ignoreDecision(ig, testPath, isDirectory) {
+  const result = ig.test(testPath);
+
+  if (isDirectory) {
+    const directoryResult = ig.test(`${testPath}/`);
+    if (directoryResult.ignored || directoryResult.unignored) {
+      return directoryResult;
+    }
+  }
+
+  return result;
 }
 
 // Drop the file extension: "src/foo.ts" → "src/foo".
