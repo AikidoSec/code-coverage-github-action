@@ -56,6 +56,82 @@ describe('projectFiles', () => {
     expect(pathStem('src/pkg/handler.py')).toBe('src/pkg/handler');
   });
 
+  it('picks the shorter path when trailing segments tie', () => {
+    const resolve = createPathResolver([
+      'apps/web/src/util.js',
+      'packages/core/src/util.js',
+      'src/util.js',
+    ]);
+
+    expect(resolve('src/util.js')).toBe('src/util.js');
+  });
+
+  it('returns null when multiple candidates are equally good matches', () => {
+    const resolve = createPathResolver(['x/pkg/util.js', 'y/pkg/util.js']);
+
+    // Ambiguous remap would silently attach coverage to the wrong package.
+    expect(resolve('pkg/util.js')).toBeNull();
+  });
+
+  it('prefers the candidate with more shared trailing segments', () => {
+    const resolve = createPathResolver([
+      'packages/a/src/util.js',
+      'packages/b/lib/util.js',
+    ]);
+
+    expect(resolve('a/src/util.js')).toBe('packages/a/src/util.js');
+  });
+
+  it('normalizes leading ./ and backslashes before resolving', () => {
+    const resolve = createPathResolver(['src/app.ts']);
+
+    expect(resolve('./src/app.ts')).toBe('src/app.ts');
+    expect(resolve('src\\app.ts')).toBe('src/app.ts');
+  });
+
+  it('filters coverage artifacts out of the project file list', async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'project-files-artifacts-'));
+    const previousCwd = process.cwd();
+    try {
+      await fs.mkdir(path.join(tmpDir, 'src'), { recursive: true });
+      await fs.writeFile(path.join(tmpDir, 'src/app.js'), 'export {}\n');
+      await fs.writeFile(path.join(tmpDir, 'coverage.lcov'), 'SF:src/app.js\nend_of_record\n');
+      await fs.writeFile(path.join(tmpDir, 'lcov.info'), 'SF:src/app.js\nend_of_record\n');
+      await fs.writeFile(path.join(tmpDir, 'coverage-final.json'), '{}\n');
+      await fs.writeFile(path.join(tmpDir, 'clover.xml'), '<coverage/>\n');
+      await fs.writeFile(path.join(tmpDir, 'cobertura.xml'), '<coverage/>\n');
+
+      process.chdir(tmpDir);
+      const project = await loadProjectFiles();
+      expect(project.files).toEqual(['src/app.js']);
+    } finally {
+      process.chdir(previousCwd);
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('skips directories that cannot be read while walking', async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'project-files-unreadable-'));
+    const previousCwd = process.cwd();
+    const blocked = path.join(tmpDir, 'blocked');
+    try {
+      await fs.mkdir(path.join(tmpDir, 'src'), { recursive: true });
+      await fs.mkdir(blocked, { recursive: true });
+      await fs.writeFile(path.join(tmpDir, 'src/app.js'), 'export {}\n');
+      await fs.writeFile(path.join(blocked, 'secret.js'), 'export {}\n');
+      await fs.chmod(blocked, 0o000);
+
+      process.chdir(tmpDir);
+      const project = await loadProjectFiles();
+      expect(project.files).toContain('src/app.js');
+      expect(project.files).not.toContain('blocked/secret.js');
+    } finally {
+      await fs.chmod(blocked, 0o755).catch(() => {});
+      process.chdir(previousCwd);
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it('walks the filesystem and honors hardcoded ignores plus .gitignore', async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'project-files-'));
     const previousCwd = process.cwd();
