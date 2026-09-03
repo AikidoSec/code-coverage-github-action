@@ -2,8 +2,7 @@
 // monorepos and CI shards often emit separate reports for the same source path (SF:).
 // Same SF path → max hits per line. Same path stem with different suffixes → keep the
 // primary record's line map only; foreign instrumentation must not change hits or inflate
-// LF. When a project file network is available, SF paths resolve via Codecov-style
-// suffix matching (unmatched paths dropped) and coverage lines past EOF are removed.
+// LF. When a project file network is available, suffix matching (unmatched paths dropped) and coverage lines past EOF are removed.
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';

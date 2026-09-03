@@ -2,9 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 // Drop coverage that points past the end of the source file.
-// Codecov's language-specific content fixes (empty lines, comments, braces) are
 // applied per-extension in their uploader and are not language-agnostic — we only
-// keep the universal EOF bound. See https://docs.codecov.com/docs/fixing-reports
 export async function loadSourceLineFixes(repositoryRoot, sourcePath) {
   if (!repositoryRoot || !sourcePath) {
     return null;
