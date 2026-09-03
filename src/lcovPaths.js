@@ -5,7 +5,7 @@ export function normalizeSourcePath(sourcePath, repositoryRoot) {
   const pathInput = trimmedPath.replaceAll('\\', '/');
 
   // Use Windows semantics for drive-letter and UNC paths on any runner.
-  const windowsPath = /^[a-zA-Z]:[\\/]/.test(trimmedPath) || trimmedPath.startsWith('\\\\');
+  const windowsPath = /^[a-zA-Z]:[\\/]/.test(trimmedPath) || trimmedPath.startsWith('\\\\') || trimmedPath.startsWith('//');
   const pathApi = windowsPath ? path.win32 : path.posix;
   const absolutePath = pathApi.isAbsolute(pathInput);
   const normalizedPath = absolutePath ? pathApi.relative(repositoryRoot, pathInput) : pathInput;
