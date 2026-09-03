@@ -2,12 +2,13 @@ import path from 'node:path';
 
 export function normalizeSourcePath(sourcePath, repositoryRoot) {
   const trimmedPath = sourcePath.trim();
+  const pathInput = trimmedPath.replaceAll('\\', '/');
 
   // Use Windows semantics for drive-letter and UNC paths on any runner.
   const windowsPath = /^[a-zA-Z]:[\\/]/.test(trimmedPath) || trimmedPath.startsWith('\\\\');
   const pathApi = windowsPath ? path.win32 : path.posix;
-  const absolutePath = pathApi.isAbsolute(trimmedPath);
-  const normalizedPath = absolutePath ? pathApi.relative(repositoryRoot, trimmedPath) : trimmedPath;
+  const absolutePath = pathApi.isAbsolute(pathInput);
+  const normalizedPath = absolutePath ? pathApi.relative(repositoryRoot, pathInput) : pathInput;
 
   // Absolute paths must resolve inside the checkout.
   if (
