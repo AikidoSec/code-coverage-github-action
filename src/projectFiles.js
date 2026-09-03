@@ -277,6 +277,11 @@ export function createPathResolver(projectFiles) {
       return null;
     }
 
+    const exactMatch = matches.find((projectPath) => projectPath === normalizedCoveragePath);
+    if (exactMatch) {
+      return exactMatch;
+    }
+
     if (matches.length === 1) {
       return matches[0];
     }
