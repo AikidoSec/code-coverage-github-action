@@ -43,6 +43,13 @@ describe('projectFiles', () => {
     expect(resolve('a/index.ts')).toBe('packages/a/index.ts');
   });
 
+  it('resolves absolute coverage paths that end with a project path', () => {
+    const resolve = createPathResolver(['src/app.ts', 'lib/util.js']);
+
+    expect(resolve('/Users/me/repo/src/app.ts')).toBe('src/app.ts');
+    expect(resolve('C:\\Users\\me\\repo\\lib\\util.js')).toBe('lib/util.js');
+  });
+
   it('exposes path stems for merge grouping without a project file network', () => {
     expect(pathStem('src/widget.js')).toBe('src/widget');
     expect(pathStem('src/widget.d.ts')).toBe('src/widget.d');

@@ -244,16 +244,30 @@ function pickBestMatch(coveragePath, candidates) {
 
 // Map a coverage report path (LCOV SF:) to a real project file. No match → null (drop it).
 export function createPathResolver(projectFiles) {
-  const exactProjectPaths = new Set(projectFiles);
+  const byBasename = new Map();
+
+  // group by basename
+  for (const projectPath of projectFiles) {
+    const key = projectPath.slice(projectPath.lastIndexOf('/') + 1).toLowerCase();
+    const entries = byBasename.get(key);
+    if (entries) {
+      entries.push(projectPath);
+    } else {
+      byBasename.set(key, [projectPath]);
+    }
+  }
 
   return (coveragePath) => {
     const normalizedCoveragePath = normalizePath(coveragePath);
+    const key = normalizedCoveragePath
+      .slice(normalizedCoveragePath.lastIndexOf('/') + 1)
+      .toLowerCase();
 
-    if (exactProjectPaths.has(normalizedCoveragePath)) {
-      return normalizedCoveragePath;
-    }
+    // find all files with the same basename
+    const candidates = byBasename.get(key) ?? [];
 
-    const matches = projectFiles.filter(
+    // filter by path suffix
+    const matches = candidates.filter(
       (projectPath) =>
         isSamePathOrSuffix(projectPath, normalizedCoveragePath) ||
         isSamePathOrSuffix(normalizedCoveragePath, projectPath),
