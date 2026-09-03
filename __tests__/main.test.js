@@ -13,6 +13,7 @@ const mockPost = jest.fn();
 const mockHttpClient = jest.fn();
 const mockGetIDToken = jest.fn();
 const mockSetSecret = jest.fn();
+const originalGitHubWorkspace = process.env.GITHUB_WORKSPACE;
 
 function decodeCoverageContent(encoded) {
   return gunzipSync(Buffer.from(encoded, 'base64')).toString('utf8');
@@ -54,6 +55,7 @@ describe('main.js security - single file path validation', () => {
     process.env.GITHUB_REPOSITORY = 'org/repo';
     process.env.GITHUB_SHA = 'abc123';
     process.env.GITHUB_HEAD_REF = 'main';
+    process.env.GITHUB_WORKSPACE = tmpDir;
     delete process.env.DEVELOPMENT;
 
     // Reset all mocks
@@ -78,6 +80,14 @@ describe('main.js security - single file path validation', () => {
 
   afterEach(async () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  afterAll(() => {
+    if (originalGitHubWorkspace === undefined) {
+      delete process.env.GITHUB_WORKSPACE;
+    } else {
+      process.env.GITHUB_WORKSPACE = originalGitHubWorkspace;
+    }
   });
 
   describe('path traversal protection', () => {
@@ -262,6 +272,50 @@ describe('main.js security - single file path validation', () => {
 
         const body = JSON.parse(rawBody);
         expect(decodeCoverageContent(body.code_coverage_file_content)).toBe(lcovContent);
+      } finally {
+        process.chdir(previousCwd);
+      }
+    });
+
+    it('uploads absolute source paths relative to the checkout root', async () => {
+      const previousCwd = process.cwd();
+      process.chdir(tmpDir);
+
+      try {
+        const absoluteSourcePath = path.join(tmpDir, 'src/app.js');
+        await fs.writeFile('lcov.info', `TN:\nSF:${absoluteSourcePath}\nDA:1,10\nend_of_record\n`);
+        mockGetInput.mockReturnValue('lcov.info');
+
+        await run();
+
+        expect(mockSetFailed).not.toHaveBeenCalled();
+        const [, rawBody] = mockPost.mock.calls[0];
+        const body = JSON.parse(rawBody);
+        const uploaded = decodeCoverageContent(body.code_coverage_file_content);
+        expect(uploaded).toContain('SF:src/app.js');
+        expect(uploaded).not.toContain(tmpDir);
+      } finally {
+        process.chdir(previousCwd);
+      }
+    });
+
+    it('normalizes Windows source paths without merging the single input', async () => {
+      const previousCwd = process.cwd();
+      process.chdir(tmpDir);
+
+      try {
+        process.env.GITHUB_WORKSPACE = 'D:\\a\\repo\\repo';
+        const lcovContent = 'TN:\nSF:D:\\a\\repo\\repo\\src\\app.cs\nDA:1,10\nend_of_record\n';
+        await fs.writeFile('lcov.info', lcovContent);
+        mockGetInput.mockReturnValue('lcov.info');
+
+        await run();
+
+        expect(mockSetFailed).not.toHaveBeenCalled();
+        const [, rawBody] = mockPost.mock.calls[0];
+        const body = JSON.parse(rawBody);
+        const uploaded = decodeCoverageContent(body.code_coverage_file_content);
+        expect(uploaded).toBe('TN:\nSF:src/app.cs\nDA:1,10\nend_of_record\n');
       } finally {
         process.chdir(previousCwd);
       }
