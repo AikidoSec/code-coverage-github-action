@@ -1,20 +1,9 @@
 import { promises as fs } from 'node:fs';
-import path from 'node:path';
 import * as core from '@actions/core';
 import { readInputs } from './inputs.js';
+import { resolveLcovFilePaths } from './resolveLcovFilePaths.js';
 import { mergeLcov } from './mergeLcov.js';
 import { uploadCoverage } from './aikido.js';
-
-/**
- * Validate that a file path is safe to read.
- * Rejects absolute paths and paths containing '..' segments to prevent
- * directory traversal and arbitrary file access.
- */
-function validateFilePath(filePath) {
-  if (filePath.includes('..') || path.isAbsolute(filePath)) {
-    throw new Error('Invalid file path: absolute paths and ".." segments are not allowed');
-  }
-}
 
 async function run() {
   let failOnError = true;
@@ -27,16 +16,14 @@ async function run() {
       throw new Error(`No lcov file(s) provided. Specify at least one path.`);
     }
 
-    core.info(`Found ${inputs.lcovFilePaths.length} coverage file(s):`);
+    const lcovFilePaths = await resolveLcovFilePaths(inputs.lcovFilePaths);
 
-    let lcovFilePath = inputs.lcovFilePaths[0];
-    if (inputs.lcovFilePaths.length > 1) {
-      core.info(`Merging ${inputs.lcovFilePaths.length} coverage file(s) into a single file...`);
-      lcovFilePath = await mergeLcov(inputs.lcovFilePaths);
-    } else {
-      // Validate single path to prevent arbitrary file access
-      validateFilePath(lcovFilePath);
-      lcovFilePath = path.resolve(lcovFilePath);
+    core.info(`Found ${lcovFilePaths.length} coverage file(s):`);
+
+    let lcovFilePath = lcovFilePaths[0];
+    if (lcovFilePaths.length > 1) {
+      core.info(`Merging ${lcovFilePaths.length} coverage file(s) into a single file...`);
+      lcovFilePath = await mergeLcov(lcovFilePaths);
     }
 
     const codeCoverageFileContent = await fs.readFile(lcovFilePath, 'utf8');

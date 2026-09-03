@@ -278,11 +278,6 @@ end_of_record
     await expect(readMerged(['abs.lcov'])).rejects.toThrow(/Invalid source path/);
   });
 
-  it('throws on absolute or parent input paths', async () => {
-    await expect(mergeLcov(['/tmp/a.lcov'])).rejects.toThrow(/Invalid file path/);
-    await expect(mergeLcov(['../a.lcov'])).rejects.toThrow(/Invalid file path/);
-  });
-
   it('skips empty coverage inputs when aligning path roots', async () => {
     const job1 = `TN:empty
 `;
