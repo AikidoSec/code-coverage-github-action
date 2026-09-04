@@ -2,7 +2,7 @@ name: 'Aikido Code Coverage'
 description: 'Collect an LCOV code coverage report and upload it to Aikido.'
 author: 'Aikido Security'
 branding:
-  icon: 'shield'
+  icon: 'bar-chart-2'
   color: 'purple'
 
 inputs:
