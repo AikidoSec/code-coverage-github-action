@@ -224,9 +224,7 @@ describe('main.js security - single file path validation', () => {
 
         await run();
 
-        expect(mockInfo).toHaveBeenCalledWith(
-          'Found 1 coverage file(s) at path(s) \n\tlcov.info',
-        );
+        expect(mockInfo).toHaveBeenCalledWith('Found 1 coverage file(s) at path(s) \n\tlcov.info');
       } finally {
         process.chdir(previousCwd);
       }
