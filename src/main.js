@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import * as core from '@actions/core';
 import { readInputs } from './inputs.js';
+import { normalizeLcovSourcePaths } from './lcovPaths.js';
 import { mergeLcov } from './mergeLcov.js';
 import { uploadCoverage } from './aikido.js';
 
@@ -29,17 +30,25 @@ async function run() {
 
     core.info(`Found ${inputs.lcovFilePaths.length} coverage file(s):`);
 
-    let lcovFilePath = inputs.lcovFilePaths[0];
+    let codeCoverageFileContent = null;
+
     if (inputs.lcovFilePaths.length > 1) {
       core.info(`Merging ${inputs.lcovFilePaths.length} coverage file(s) into a single file...`);
-      lcovFilePath = await mergeLcov(inputs.lcovFilePaths);
+      const mergedLcovFilePath = await mergeLcov(inputs.lcovFilePaths);
+      codeCoverageFileContent = await fs.readFile(mergedLcovFilePath, 'utf8');
     } else {
       // Validate single path to prevent arbitrary file access
+      const lcovFilePath = inputs.lcovFilePaths[0];
       validateFilePath(lcovFilePath);
-      lcovFilePath = path.resolve(lcovFilePath);
+
+      const content = await fs.readFile(path.resolve(lcovFilePath), 'utf8');
+      const repositoryRoot = process.env.GITHUB_WORKSPACE ?? process.cwd();
+      codeCoverageFileContent = normalizeLcovSourcePaths(content, repositoryRoot);
     }
 
-    const codeCoverageFileContent = await fs.readFile(lcovFilePath, 'utf8');
+    if (codeCoverageFileContent === null) {
+      throw new Error('Something went wrong while validating the coverage file(s)');
+    }
 
     core.info('Uploading coverage report to Aikido...');
     await uploadCoverage(codeCoverageFileContent);

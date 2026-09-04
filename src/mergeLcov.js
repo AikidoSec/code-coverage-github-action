@@ -6,6 +6,7 @@
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { normalizeLcovSourcePaths } from './lcovPaths.js';
 import { createPathResolver, loadProjectFiles, pathStem } from './projectFiles.js';
 import { applySourceLineFixes, loadSourceLineFixes } from './sourceLineFixes.js';
 
@@ -26,16 +27,22 @@ export async function mergeLcov(paths) {
 
   const project = await loadProjectFiles();
 
+  // Normalize runner-specific absolute paths so records can be matched to project files.
+  const repositoryRoot = process.env.GITHUB_WORKSPACE ?? project?.root ?? process.cwd();
+  const normalizedContents = contents.map((content) =>
+    normalizeLcovSourcePaths(content, repositoryRoot),
+  );
+
   // Project files already map package-relative SF paths (src/a.js → packages/app/src/a.js).
   // Skipping align avoids rewriting those to a wrong first-component root.
   const { sourceRoot, inputsWithoutRootDirectory } = project
     ? { sourceRoot: null, inputsWithoutRootDirectory: null }
-    : alignPathRoots(contents);
+    : alignPathRoots(normalizedContents);
 
   const resolveToProjectPath = project ? createPathResolver(project.files) : null;
   const groups = new Map();
 
-  for (const [inputIndex, content] of contents.entries()) {
+  for (const [inputIndex, content] of normalizedContents.entries()) {
     for (const record of parseRecords(content, sourceRoot, inputIndex)) {
       let groupKey;
       let projectPath = null;

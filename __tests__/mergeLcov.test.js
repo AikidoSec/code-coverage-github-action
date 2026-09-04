@@ -82,6 +82,44 @@ end_of_record
     expect(merged.match(/^SF:/gm)).toHaveLength(2);
   });
 
+  it('normalizes Windows runner paths before merging multiple inputs', async () => {
+    const originalWorkspace = process.env.GITHUB_WORKSPACE;
+    process.env.GITHUB_WORKSPACE = 'D:\\a\\repo\\repo';
+
+    try {
+      await fs.mkdir(path.join(tmpDir, 'src'), { recursive: true });
+      await fs.writeFile(path.join(tmpDir, 'src/a.cs'), '// source\n');
+      await writeLcovFile(
+        tmpDir,
+        'windows-1.lcov',
+        `SF:D:\\a\\repo\\repo\\src\\a.cs
+DA:1,1
+end_of_record
+`,
+      );
+      await writeLcovFile(
+        tmpDir,
+        'windows-2.lcov',
+        `SF:d:\\A\\Repo\\Repo\\src\\a.cs
+DA:1,2
+end_of_record
+`,
+      );
+
+      const merged = await readMerged(['windows-1.lcov', 'windows-2.lcov']);
+
+      expect(merged).toContain('SF:src/a.cs');
+      expect(merged).toContain('DA:1,2');
+      expect(merged).not.toContain('D:/a/repo');
+    } finally {
+      if (originalWorkspace === undefined) {
+        delete process.env.GITHUB_WORKSPACE;
+      } else {
+        process.env.GITHUB_WORKSPACE = originalWorkspace;
+      }
+    }
+  });
+
   it('throws when no inputs are provided', async () => {
     await expect(mergeLcov([])).rejects.toThrow(/No coverage records/);
   });
