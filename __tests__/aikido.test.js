@@ -144,4 +144,37 @@ describe('uploadCoverage', () => {
       'Aikido upload failed: Request failed with status code 500 - Internal server error',
     );
   });
+
+  describe('multi-region support', () => {
+    beforeEach(() => {
+      delete process.env.DEVELOPMENT;
+    });
+
+    it.each([
+      {
+        region: 'us',
+        url: 'https://bg.us.aikido.dev',
+      },
+      {
+        region: 'me',
+        url: 'https://bg.me.aikido.dev',
+      },
+      {
+        region: 'au',
+        url: 'https://bg.au.aikido.dev',
+      },
+      {
+        region: 'us-gov',
+        url: 'https://bg.aikidogov.us',
+      },
+      {
+        region: '',
+        url: 'https://bg.aikido.dev',
+      },
+    ])('uses the %s region', async ({ region, url }) => {
+      await uploadCoverage(codeCoverageFileContent, region);
+      const [actualUrl] = mockPost.mock.calls[0];
+      expect(actualUrl).toContain(url);
+    });
+  });
 });

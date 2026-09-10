@@ -2,8 +2,24 @@ import * as core from '@actions/core';
 import { HttpClient, HttpCodes } from '@actions/http-client';
 import { gzipSync } from 'node:zlib';
 
-const BASE_URL = process.env.DEVELOPMENT ? 'https://app.test.aikido.dev' : 'https://bg.aikido.dev';
-const OIDC_AUDIENCE = BASE_URL;
+function getBaseUrl(region) {
+  if (process.env.DEVELOPMENT) {
+    return 'https://app.test.aikido.dev';
+  }
+
+  switch (region) {
+    case 'us':
+      return 'https://bg.us.aikido.dev';
+    case 'me':
+      return 'https://bg.me.aikido.dev';
+    case 'au':
+      return 'https://bg.au.aikido.dev';
+    case 'us-gov':
+      return 'https://bg.aikidogov.us';
+    default:
+      return 'https://bg.aikido.dev';
+  }
+}
 
 function parseJsonBody(rawBody) {
   if (!rawBody) {
@@ -30,9 +46,10 @@ function formatRequestError(statusCode, result, rawBody) {
 /**
  * Resolve request authentication headers for secret-key or OIDC mode.
  */
-export async function getAuthHeaders() {
+export async function getAuthHeaders(region = '') {
   try {
-    const oidcToken = await core.getIDToken(OIDC_AUDIENCE);
+    const oidcAudience = getBaseUrl(region);
+    const oidcToken = await core.getIDToken(oidcAudience);
     core.setSecret(oidcToken);
 
     return { Authorization: `Bearer ${oidcToken}` };
@@ -48,8 +65,8 @@ export async function getAuthHeaders() {
 /**
  * Upload a coverage payload to Aikido.
  */
-export async function uploadCoverage(codeCoverageFileContent) {
-  const authHeaders = await getAuthHeaders();
+export async function uploadCoverage(codeCoverageFileContent, region = '') {
+  const authHeaders = await getAuthHeaders(region);
   const client = new HttpClient('aikido-code-coverage');
 
   const body = {
@@ -59,7 +76,8 @@ export async function uploadCoverage(codeCoverageFileContent) {
     code_coverage_file_content: gzipSync(codeCoverageFileContent).toString('base64'),
   };
 
-  const url = `${BASE_URL}/api/integrations/continuous_integration/scan/code_coverage`;
+  const baseUrl = getBaseUrl(region);
+  const url = `${baseUrl}/api/integrations/continuous_integration/scan/code_coverage`;
 
   const response = await client.post(url, JSON.stringify(body), {
     ...authHeaders,
