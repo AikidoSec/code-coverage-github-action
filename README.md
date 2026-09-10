@@ -147,7 +147,7 @@ the matrix test jobs.
 | Input             | Required | Default | Description                                                                           |
 | ----------------- | -------- | ------- | ------------------------------------------------------------------------------------- |
 | `lcov-file-paths` | yes      | —       | Path(s) to the LCOV report file(s).                                                   |
-| `region`          | no       | `eu`    | Aikido region for upload and OIDC audience: `eu`, `us`, `me`, `au`, or `us-gov`.      |
+| `region`          | no       | `eu`    | Aikido region for upload and OIDC audience: `eu`, `us`, `au`, or `us-gov`.            |
 | `fail-on-error`   | no       | `true`  | Fail the action if reading or upload fails. Set to `false` to emit a warning instead. |
 
 ### Region

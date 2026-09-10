@@ -10,7 +10,7 @@ inputs:
     description: 'Path(s) to the LCOV coverage report(s). Separate multiple entries with newlines'
     required: true
   region:
-    description: 'Aikido region for upload and OIDC audience. One of: eu, us, me, au, us-gov.'
+    description: 'Aikido region for upload and OIDC audience. One of: eu, us, au, us-gov.'
     required: false
     default: 'eu'
   fail-on-error:

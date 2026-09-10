@@ -48,7 +48,6 @@ function mockResponse(statusCode, rawBody = '') {
 const REGIONS = [
   { region: 'eu', baseUrl: 'https://bg.aikido.dev' },
   { region: 'us', baseUrl: 'https://bg.us.aikido.dev' },
-  { region: 'me', baseUrl: 'https://bg.me.aikido.dev' },
   { region: 'au', baseUrl: 'https://bg.au.aikido.dev' },
   { region: 'us-gov', baseUrl: 'https://bg.aikidogov.us' },
 ];
@@ -137,7 +136,7 @@ describe('e2e multi-region OIDC and upload URLs', () => {
         });
 
         expect(mockInfo).toHaveBeenCalledWith(
-          `Uploading coverage report for branch main and region ${region} to Aikido...`,
+          `Uploading coverage report for branch main to Aikido...`,
         );
         expect(mockInfo).toHaveBeenCalledWith('Upload succeeded.');
       } finally {

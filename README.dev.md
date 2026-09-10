@@ -19,15 +19,15 @@ npm install
 
 ## npm scripts
 
-| Script           | Description                                        |
-| ---------------- | -------------------------------------------------- |
-| `npm test`       | Run unit and e2e tests with Jest                   |
-| `npm run test:e2e` | Run e2e/integration tests only                   |
-| `npm run lint`   | Lint `src/` and `__tests__/` with ESLint           |
-| `npm run format` | Format JavaScript files with Prettier              |
-| `npm run build`  | Bundle `src/main.js` into `dist/index.js` with ncc |
-| `npm run local`  | Run the action locally via `@github/local-action`  |
-| `npm run all`    | Format, lint, test, and build in one command       |
+| Script             | Description                                        |
+| ------------------ | -------------------------------------------------- |
+| `npm test`         | Run unit and e2e tests with Jest                   |
+| `npm run test:e2e` | Run e2e/integration tests only                     |
+| `npm run lint`     | Lint `src/` and `__tests__/` with ESLint           |
+| `npm run format`   | Format JavaScript files with Prettier              |
+| `npm run build`    | Bundle `src/main.js` into `dist/index.js` with ncc |
+| `npm run local`    | Run the action locally via `@github/local-action`  |
+| `npm run all`      | Format, lint, test, and build in one command       |
 
 Before opening a pull request, run the full check:
 
@@ -58,7 +58,7 @@ GitHub Actions inputs are exposed as environment variables with an `INPUT_` pref
 | Variable                | Required | Description                                        |
 | ----------------------- | -------- | -------------------------------------------------- |
 | `INPUT_LCOV-FILE-PATHS` | yes      | Path(s) to LCOV file(s), e.g. `coverage/lcov.info` |
-| `INPUT_REGION`          | no       | `eu` (default), `us`, `me`, `au`, or `us-gov`      |
+| `INPUT_REGION`          | no       | `eu` (default), `us`, `au`, or `us-gov`            |
 | `INPUT_FAIL-ON-ERROR`   | no       | Defaults to `true`                                 |
 
 The published action authenticates with GitHub OIDC (`core.getIDToken`). That only works

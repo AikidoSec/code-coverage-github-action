@@ -41,7 +41,6 @@ describe('getBaseUrl', () => {
     ['eu', 'https://bg.aikido.dev'],
     ['EU', 'https://bg.aikido.dev'],
     ['us', 'https://bg.us.aikido.dev'],
-    ['me', 'https://bg.me.aikido.dev'],
     ['au', 'https://bg.au.aikido.dev'],
     ['us-gov', 'https://bg.aikidogov.us'],
   ])('maps region %j to %s', (region, url) => {
@@ -50,7 +49,7 @@ describe('getBaseUrl', () => {
 
   it('throws for an unknown region', () => {
     expect(() => getBaseUrl('mars')).toThrow(
-      'Unknown region "mars". Supported regions: eu, us, me, au, us-gov',
+      'Unknown region "mars". Supported regions: eu, us, au, us-gov',
     );
   });
 

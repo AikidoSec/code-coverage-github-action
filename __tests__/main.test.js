@@ -303,10 +303,10 @@ describe('main.js security - single file path validation', () => {
         expect(headers['Content-Encoding']).toBeUndefined();
 
         expect(mockInfo).not.toHaveBeenCalledWith(
-          `Uploading coverage report for branch haha and region eu to Aikido...`,
+          `Uploading coverage report for branch haha to Aikido...`,
         );
         expect(mockInfo).toHaveBeenCalledWith(
-          `Uploading coverage report for branch main and region eu to Aikido...`,
+          `Uploading coverage report for branch main to Aikido...`,
         );
         expect(mockInfo).toHaveBeenCalledWith('Upload succeeded.');
       } finally {

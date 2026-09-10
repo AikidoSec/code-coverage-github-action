@@ -5,7 +5,6 @@ import { gzipSync } from 'node:zlib';
 const REGION_BASE_URLS = {
   eu: 'https://bg.aikido.dev',
   us: 'https://bg.us.aikido.dev',
-  me: 'https://bg.me.aikido.dev',
   au: 'https://bg.au.aikido.dev',
   'us-gov': 'https://bg.aikidogov.us',
 };
