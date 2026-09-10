@@ -11,6 +11,7 @@
     "format": "prettier --write \"**/*.js\"",
     "format:check": "prettier --check \"**/*.js\"",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "test:integration": "node --experimental-vm-modules node_modules/jest/bin/jest.js __tests__/integration",
     "local": "local-action . src/main.js .env",
     "all": "npm run format && npm run lint && npm run test && npm run build"
   },

@@ -18,7 +18,7 @@ jest.unstable_mockModule('@actions/http-client', () => ({
   },
 }));
 
-const { getAuthHeaders, uploadCoverage } = await import('../src/aikido.js');
+const { getAuthHeaders, getBaseUrl, uploadCoverage } = await import('../src/aikido.js');
 
 function mockResponse(statusCode, rawBody = '') {
   return {
@@ -30,6 +30,35 @@ function mockResponse(statusCode, rawBody = '') {
 function decodeCoverageContent(encoded) {
   return gunzipSync(Buffer.from(encoded, 'base64')).toString('utf8');
 }
+
+describe('getBaseUrl', () => {
+  beforeEach(() => {
+    delete process.env.DEVELOPMENT;
+  });
+
+  it.each([
+    ['', 'https://bg.aikido.dev'],
+    ['eu', 'https://bg.aikido.dev'],
+    ['EU', 'https://bg.aikido.dev'],
+    ['us', 'https://bg.us.aikido.dev'],
+    ['me', 'https://bg.me.aikido.dev'],
+    ['au', 'https://bg.au.aikido.dev'],
+    ['us-gov', 'https://bg.aikidogov.us'],
+  ])('maps region %j to %s', (region, url) => {
+    expect(getBaseUrl(region)).toBe(url);
+  });
+
+  it('throws for an unknown region', () => {
+    expect(() => getBaseUrl('mars')).toThrow(
+      'Unknown region "mars". Supported regions: eu, us, me, au, us-gov',
+    );
+  });
+
+  it('uses the development URL when DEVELOPMENT is set', () => {
+    process.env.DEVELOPMENT = 'true';
+    expect(getBaseUrl('us')).toBe('https://app.test.aikido.dev');
+  });
+});
 
 describe('getAuthHeaders', () => {
   beforeEach(() => {
@@ -48,12 +77,25 @@ describe('getAuthHeaders', () => {
     expect(mockSetSecret).toHaveBeenCalledWith('oidc-jwt');
   });
 
+  it('uses the region base URL as the OIDC audience', async () => {
+    mockGetIDToken.mockResolvedValue('oidc-jwt');
+
+    await getAuthHeaders('us');
+
+    expect(mockGetIDToken).toHaveBeenCalledWith('https://bg.us.aikido.dev');
+  });
+
   it('throws a friendly error when OIDC is unavailable', async () => {
     mockGetIDToken.mockRejectedValue(new Error('OIDC not available'));
 
     await expect(getAuthHeaders()).rejects.toThrow(
       'This action uses OIDC to authenticate with Aikido. Add to your workflow job:\n  permissions:\n    id-token: write',
     );
+  });
+
+  it('rethrows unknown region errors', async () => {
+    await expect(getAuthHeaders('mars')).rejects.toThrow('Unknown region "mars"');
+    expect(mockGetIDToken).not.toHaveBeenCalled();
   });
 });
 
@@ -143,38 +185,5 @@ describe('uploadCoverage', () => {
     await expect(uploadCoverage(codeCoverageFileContent)).rejects.toThrow(
       'Aikido upload failed: Request failed with status code 500 - Internal server error',
     );
-  });
-
-  describe('multi-region support', () => {
-    beforeEach(() => {
-      delete process.env.DEVELOPMENT;
-    });
-
-    it.each([
-      {
-        region: 'us',
-        url: 'https://bg.us.aikido.dev',
-      },
-      {
-        region: 'me',
-        url: 'https://bg.me.aikido.dev',
-      },
-      {
-        region: 'au',
-        url: 'https://bg.au.aikido.dev',
-      },
-      {
-        region: 'us-gov',
-        url: 'https://bg.aikidogov.us',
-      },
-      {
-        region: '',
-        url: 'https://bg.aikido.dev',
-      },
-    ])('uses the %s region', async ({ region, url }) => {
-      await uploadCoverage(codeCoverageFileContent, region);
-      const [actualUrl] = mockPost.mock.calls[0];
-      expect(actualUrl).toContain(url);
-    });
   });
 });

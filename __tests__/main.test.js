@@ -70,13 +70,36 @@ describe('main.js security - single file path validation', () => {
     mockSetSecret.mockClear();
 
     // Default mock implementations
-    mockGetBooleanInput.mockReturnValue(true);
+    mockGetInput.mockImplementation((name) => {
+      if (name === 'region') {
+        return 'eu';
+      }
+      return '';
+    });
+    mockGetBooleanInput.mockImplementation((name) => {
+      if (name === 'fail-on-error') {
+        return true;
+      }
+      return false;
+    });
     mockHttpClient.mockImplementation(() => ({
       post: mockPost,
     }));
     mockPost.mockResolvedValue(mockResponse(200, JSON.stringify({ success: true })));
     mockGetIDToken.mockResolvedValue('oidc-jwt');
   });
+
+  function setLcovInput(value) {
+    mockGetInput.mockImplementation((name) => {
+      if (name === 'lcov-file-paths') {
+        return value;
+      }
+      if (name === 'region') {
+        return 'eu';
+      }
+      return '';
+    });
+  }
 
   afterEach(async () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
@@ -100,7 +123,7 @@ describe('main.js security - single file path validation', () => {
         await fs.writeFile('lcov.info', 'TN:\nSF:test.js\nend_of_record\n');
 
         // Attempt to use path traversal
-        mockGetInput.mockReturnValue('../../../etc/passwd');
+        setLcovInput('../../../etc/passwd');
 
         await run();
 
@@ -120,7 +143,7 @@ describe('main.js security - single file path validation', () => {
       process.chdir(tmpDir);
 
       try {
-        mockGetInput.mockReturnValue('../../sensitive/file.txt');
+        setLcovInput('../../sensitive/file.txt');
 
         await run();
 
@@ -140,7 +163,7 @@ describe('main.js security - single file path validation', () => {
       process.chdir(tmpDir);
 
       try {
-        mockGetInput.mockReturnValue('coverage/../../../etc/passwd');
+        setLcovInput('coverage/../../../etc/passwd');
 
         await run();
 
@@ -162,7 +185,7 @@ describe('main.js security - single file path validation', () => {
       process.chdir(tmpDir);
 
       try {
-        mockGetInput.mockReturnValue('/etc/passwd');
+        setLcovInput('/etc/passwd');
 
         await run();
 
@@ -184,7 +207,7 @@ describe('main.js security - single file path validation', () => {
       try {
         // Windows absolute path - only test on Windows
         if (process.platform === 'win32') {
-          mockGetInput.mockReturnValue('C:\\Windows\\System32\\config\\SAM');
+          setLcovInput('C:\\Windows\\System32\\config\\SAM');
 
           await run();
 
@@ -196,7 +219,7 @@ describe('main.js security - single file path validation', () => {
           expect(mockPost).not.toHaveBeenCalled();
         } else {
           // On Unix, test with a Unix absolute path instead
-          mockGetInput.mockReturnValue('/var/log/system.log');
+          setLcovInput('/var/log/system.log');
 
           await run();
 
@@ -222,7 +245,7 @@ describe('main.js security - single file path validation', () => {
         const lcovContent = 'TN:\nSF:src/test.js\nDA:1,5\nend_of_record\n';
         await fs.writeFile('lcov.info', lcovContent);
 
-        mockGetInput.mockReturnValue('lcov.info');
+        setLcovInput('lcov.info');
 
         await run();
 
@@ -257,7 +280,7 @@ describe('main.js security - single file path validation', () => {
         const lcovContent = 'TN:\nSF:src/app.js\nDA:1,10\nend_of_record\n';
         await fs.writeFile('coverage/lcov.info', lcovContent);
 
-        mockGetInput.mockReturnValue('coverage/lcov.info');
+        setLcovInput('coverage/lcov.info');
 
         await run();
 
@@ -284,7 +307,7 @@ describe('main.js security - single file path validation', () => {
       try {
         const absoluteSourcePath = path.join(tmpDir, 'src/app.js');
         await fs.writeFile('lcov.info', `TN:\nSF:${absoluteSourcePath}\nDA:1,10\nend_of_record\n`);
-        mockGetInput.mockReturnValue('lcov.info');
+        setLcovInput('lcov.info');
 
         await run();
 
@@ -307,7 +330,7 @@ describe('main.js security - single file path validation', () => {
         process.env.GITHUB_WORKSPACE = 'D:\\a\\repo\\repo';
         const lcovContent = 'TN:\nSF:D:\\a\\repo\\repo\\src\\app.cs\nDA:1,10\nend_of_record\n';
         await fs.writeFile('lcov.info', lcovContent);
-        mockGetInput.mockReturnValue('lcov.info');
+        setLcovInput('lcov.info');
 
         await run();
 
@@ -334,7 +357,7 @@ describe('main.js security - single file path validation', () => {
         await fs.writeFile('lcov1.info', lcov1);
         await fs.writeFile('lcov2.info', lcov2);
 
-        mockGetInput.mockReturnValue('lcov1.info lcov2.info');
+        setLcovInput('lcov1.info lcov2.info');
 
         await run();
 
@@ -354,7 +377,7 @@ describe('main.js security - single file path validation', () => {
         await fs.writeFile('lcov1.info', 'TN:\nSF:src/a.js\nDA:1,5\nend_of_record\n');
 
         // One valid path, one with traversal
-        mockGetInput.mockReturnValue('lcov1.info ../../../etc/passwd');
+        setLcovInput('lcov1.info ../../../etc/passwd');
 
         await run();
 
@@ -373,7 +396,7 @@ describe('main.js security - single file path validation', () => {
         await fs.writeFile('lcov1.info', 'TN:\nSF:src/a.js\nDA:1,5\nend_of_record\n');
 
         // One valid path, one absolute
-        mockGetInput.mockReturnValue('lcov1.info /etc/passwd');
+        setLcovInput('lcov1.info /etc/passwd');
 
         await run();
 
@@ -391,8 +414,13 @@ describe('main.js security - single file path validation', () => {
       process.chdir(tmpDir);
 
       try {
-        mockGetBooleanInput.mockReturnValue(false);
-        mockGetInput.mockReturnValue('../../../etc/passwd');
+        mockGetBooleanInput.mockImplementation((name) => {
+          if (name === 'fail-on-error') {
+            return false;
+          }
+          return false;
+        });
+        setLcovInput('../../../etc/passwd');
 
         await run();
 
@@ -416,7 +444,7 @@ describe('main.js security - single file path validation', () => {
 
       try {
         // Simulate attacker trying to read /etc/passwd
-        mockGetInput.mockReturnValue('/etc/passwd');
+        setLcovInput('/etc/passwd');
 
         await run();
 
@@ -440,7 +468,7 @@ describe('main.js security - single file path validation', () => {
 
       try {
         // Simulate attacker trying to read runner secrets or environment files
-        mockGetInput.mockReturnValue('../../.env');
+        setLcovInput('../../.env');
 
         await run();
 
@@ -464,7 +492,7 @@ describe('main.js security - single file path validation', () => {
 
       try {
         // Complex path traversal attempt
-        mockGetInput.mockReturnValue('coverage/../../../../../../home/runner/.ssh/id_rsa');
+        setLcovInput('coverage/../../../../../../home/runner/.ssh/id_rsa');
 
         await run();
 
@@ -490,7 +518,7 @@ describe('main.js security - single file path validation', () => {
 
       try {
         // Use a path that would fail validation
-        mockGetInput.mockReturnValue('../sensitive.txt');
+        setLcovInput('../sensitive.txt');
 
         await run();
 

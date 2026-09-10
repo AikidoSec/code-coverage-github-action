@@ -50,8 +50,8 @@ async function run() {
       throw new Error('Something went wrong while validating the coverage file(s)');
     }
 
-    core.info('Uploading coverage report to Aikido...');
-    await uploadCoverage(codeCoverageFileContent);
+    core.info(`Uploading coverage report to Aikido (${inputs.region})...`);
+    await uploadCoverage(codeCoverageFileContent, inputs.region);
 
     core.info(`Upload succeeded.`);
   } catch (error) {

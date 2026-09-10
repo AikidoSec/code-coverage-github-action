@@ -2,23 +2,29 @@ import * as core from '@actions/core';
 import { HttpClient, HttpCodes } from '@actions/http-client';
 import { gzipSync } from 'node:zlib';
 
-function getBaseUrl(region) {
+const REGION_BASE_URLS = {
+  eu: 'https://bg.aikido.dev',
+  us: 'https://bg.us.aikido.dev',
+  me: 'https://bg.me.aikido.dev',
+  au: 'https://bg.au.aikido.dev',
+  'us-gov': 'https://bg.aikidogov.us',
+};
+
+export function getBaseUrl(region = '') {
   if (process.env.DEVELOPMENT) {
     return 'https://app.test.aikido.dev';
   }
 
-  switch (region) {
-    case 'us':
-      return 'https://bg.us.aikido.dev';
-    case 'me':
-      return 'https://bg.me.aikido.dev';
-    case 'au':
-      return 'https://bg.au.aikido.dev';
-    case 'us-gov':
-      return 'https://bg.aikidogov.us';
-    default:
-      return 'https://bg.aikido.dev';
+  const normalized = (region || 'eu').toLowerCase().trim();
+  const baseUrl = REGION_BASE_URLS[normalized];
+
+  if (!baseUrl) {
+    throw new Error(
+      `Unknown region "${region}". Supported regions: ${Object.keys(REGION_BASE_URLS).join(', ')}`,
+    );
   }
+
+  return baseUrl;
 }
 
 function parseJsonBody(rawBody) {
@@ -53,7 +59,11 @@ export async function getAuthHeaders(region = '') {
     core.setSecret(oidcToken);
 
     return { Authorization: `Bearer ${oidcToken}` };
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Unknown region')) {
+      throw error;
+    }
+
     throw new Error(
       'This action uses OIDC to authenticate with Aikido. Add to your workflow job:\n' +
         '  permissions:\n' +
