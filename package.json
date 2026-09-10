@@ -6,7 +6,7 @@
   "description": "GitHub Action that collects an LCOV code coverage report and uploads it to Aikido.",
   "main": "dist/index.js",
   "scripts": {
-    "build": "ncc build src/main.js -o dist --source-map --license licenses.txt",
+    "build": "ncc build src/main.js -o dist --minify --source-map --license licenses.txt",
     "lint": "eslint src __tests__",
     "format": "prettier --write \"**/*.js\"",
     "format:check": "prettier --check \"**/*.js\"",
