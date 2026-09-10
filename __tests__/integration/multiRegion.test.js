@@ -136,7 +136,9 @@ describe('e2e multi-region OIDC and upload URLs', () => {
           Accept: 'application/json',
         });
 
-        expect(mockInfo).toHaveBeenCalledWith(`Uploading coverage report to Aikido (${region})...`);
+        expect(mockInfo).toHaveBeenCalledWith(
+          `Uploading coverage report for branch main and region ${region} to Aikido...`,
+        );
         expect(mockInfo).toHaveBeenCalledWith('Upload succeeded.');
       } finally {
         process.chdir(previousCwd);
