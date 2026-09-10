@@ -55,7 +55,7 @@ async function run() {
     core.info(
       `Uploading coverage report for branch ${process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME} to Aikido...`,
     );
-    await uploadCoverage(codeCoverageFileContent);
+    await uploadCoverage(codeCoverageFileContent, inputs.region);
 
     core.info(`Upload succeeded.`);
   } catch (error) {

@@ -147,7 +147,21 @@ the matrix test jobs.
 | Input             | Required | Default | Description                                                                           |
 | ----------------- | -------- | ------- | ------------------------------------------------------------------------------------- |
 | `lcov-file-paths` | yes      | —       | Path(s) to the LCOV report file(s).                                                   |
+| `region`          | no       | `eu`    | Aikido region for upload and OIDC audience: `eu`, `us`, `au`, or `us-gov`.            |
 | `fail-on-error`   | no       | `true`  | Fail the action if reading or upload fails. Set to `false` to emit a warning instead. |
+
+### Region
+
+Set `region` to match your Aikido workspace. The value selects both the API host and the OIDC
+token audience.
+
+```yaml
+- name: Upload coverage to Aikido
+  uses: AikidoSec/code-coverage-github-action@v1
+  with:
+    lcov-file-paths: coverage/lcov.info
+    region: us
+```
 
 ## Authentication
 

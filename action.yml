@@ -9,6 +9,10 @@ inputs:
   lcov-file-paths:
     description: 'Path(s) to the LCOV coverage report(s). Separate multiple entries with newlines'
     required: true
+  region:
+    description: 'Aikido region for upload and OIDC audience. One of: eu, us, au, us-gov.'
+    required: false
+    default: 'eu'
   fail-on-error:
     description: 'Fail the action if discovery or upload fails. Set to false to warn instead.'
     required: false

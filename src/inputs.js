@@ -15,9 +15,11 @@ export function readInputs() {
     .filter(Boolean);
 
   const failOnError = core.getBooleanInput('fail-on-error');
+  const region = core.getInput('region', { required: false, trimWhitespace: true }) || 'eu';
 
   return {
     lcovFilePaths,
     failOnError,
+    region,
   };
 }
