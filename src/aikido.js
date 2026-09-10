@@ -53,17 +53,14 @@ function formatRequestError(statusCode, result, rawBody) {
  * Resolve request authentication headers for secret-key or OIDC mode.
  */
 export async function getAuthHeaders(region = '') {
+  const oidcAudience = getBaseUrl(region);
+
   try {
-    const oidcAudience = getBaseUrl(region);
     const oidcToken = await core.getIDToken(oidcAudience);
     core.setSecret(oidcToken);
 
     return { Authorization: `Bearer ${oidcToken}` };
-  } catch (error) {
-    if (error instanceof Error && error.message.startsWith('Unknown region')) {
-      throw error;
-    }
-
+  } catch {
     throw new Error(
       'This action uses OIDC to authenticate with Aikido. Add to your workflow job:\n' +
         '  permissions:\n' +
