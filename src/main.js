@@ -28,7 +28,9 @@ async function run() {
       throw new Error(`No lcov file(s) provided. Specify at least one path.`);
     }
 
-    core.info(`Found ${inputs.lcovFilePaths.length} coverage file(s):`);
+    core.info(
+      `Found ${inputs.lcovFilePaths.length} coverage file(s) at path(s) \n\t${inputs.lcovFilePaths.join('\n\t')}`,
+    );
 
     let codeCoverageFileContent = null;
 
@@ -50,7 +52,9 @@ async function run() {
       throw new Error('Something went wrong while validating the coverage file(s)');
     }
 
-    core.info('Uploading coverage report to Aikido...');
+    core.info(
+      `Uploading coverage report for branch ${process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME} to Aikido...`,
+    );
     await uploadCoverage(codeCoverageFileContent);
 
     core.info(`Upload succeeded.`);

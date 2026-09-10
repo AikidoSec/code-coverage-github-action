@@ -213,6 +213,43 @@ describe('main.js security - single file path validation', () => {
     });
   });
 
+  describe('coverage file discovery logging', () => {
+    it('logs found coverage file paths for a single file', async () => {
+      const previousCwd = process.cwd();
+      process.chdir(tmpDir);
+
+      try {
+        await fs.writeFile('lcov.info', 'TN:\nSF:src/test.js\nDA:1,5\nend_of_record\n');
+        mockGetInput.mockReturnValue('lcov.info');
+
+        await run();
+
+        expect(mockInfo).toHaveBeenCalledWith('Found 1 coverage file(s) at path(s) \n\tlcov.info');
+      } finally {
+        process.chdir(previousCwd);
+      }
+    });
+
+    it('logs found coverage file paths for multiple files', async () => {
+      const previousCwd = process.cwd();
+      process.chdir(tmpDir);
+
+      try {
+        await fs.writeFile('lcov1.info', 'TN:\nSF:src/a.js\nDA:1,5\nend_of_record\n');
+        await fs.writeFile('lcov2.info', 'TN:\nSF:src/b.js\nDA:1,3\nend_of_record\n');
+        mockGetInput.mockReturnValue('lcov1.info lcov2.info');
+
+        await run();
+
+        expect(mockInfo).toHaveBeenCalledWith(
+          'Found 2 coverage file(s) at path(s) \n\tlcov1.info\n\tlcov2.info',
+        );
+      } finally {
+        process.chdir(previousCwd);
+      }
+    });
+  });
+
   describe('valid single file path', () => {
     it('accepts and processes valid relative single file path', async () => {
       const previousCwd = process.cwd();
@@ -242,6 +279,12 @@ describe('main.js security - single file path validation', () => {
         expect(headers['Content-Type']).toBe('application/json');
         expect(headers['Content-Encoding']).toBeUndefined();
 
+        expect(mockInfo).not.toHaveBeenCalledWith(
+          `Uploading coverage report for branch haahah to Aikido...`,
+        );
+        expect(mockInfo).toHaveBeenCalledWith(
+          `Uploading coverage report for branch main to Aikido...`,
+        );
         expect(mockInfo).toHaveBeenCalledWith('Upload succeeded.');
       } finally {
         process.chdir(previousCwd);
