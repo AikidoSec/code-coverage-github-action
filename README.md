@@ -55,7 +55,7 @@ jobs:
           path: coverage
 
       - name: Upload coverage to Aikido
-        uses: AikidoSec/code-coverage-github-action@v1
+        uses: AikidoSec/code-coverage-github-action@v1.1.0 # or any latest stable version
         with:
           lcov-file-paths: coverage/lcov.info
 ```
@@ -67,7 +67,7 @@ action merges all inputs into one upload.
 
 ```yaml
 - name: Upload coverage to Aikido
-  uses: AikidoSec/code-coverage-github-action@v1
+  uses: AikidoSec/code-coverage-github-action@v1.1.0 # or any latest stable version
   with:
     lcov-file-paths: |
       packages/a/coverage/lcov.info
@@ -127,7 +127,7 @@ jobs:
           merge-multiple: true
 
       - name: Upload coverage to Aikido
-        uses: AikidoSec/code-coverage-github-action@v1
+        uses: AikidoSec/code-coverage-github-action@v1.1.0 # or any latest stable version
         with:
           lcov-file-paths: |
             coverage-reports/packages/a/coverage/lcov.info
@@ -157,7 +157,7 @@ token audience.
 
 ```yaml
 - name: Upload coverage to Aikido
-  uses: AikidoSec/code-coverage-github-action@v1
+  uses: AikidoSec/code-coverage-github-action@v1.1.0 # or any latest stable version
   with:
     lcov-file-paths: coverage/lcov.info
     region: us
@@ -200,7 +200,7 @@ jobs:
           path: coverage
 
       - name: Upload coverage to Aikido
-        uses: AikidoSec/code-coverage-github-action@v1
+        uses: AikidoSec/code-coverage-github-action@v1.1.0 # or any latest stable version
         with:
           lcov-file-paths: coverage/lcov.info
 ```
