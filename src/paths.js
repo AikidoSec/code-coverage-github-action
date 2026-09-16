@@ -1,5 +1,30 @@
 import path from 'node:path';
 
+/**
+ * Validate that a file path is safe to read.
+ * Rejects absolute paths and paths containing '..' segments to prevent
+ * directory traversal and arbitrary file access.
+ */
+export function validateFilePath(filePath) {
+  if (filePath.includes('..') || isAbsoluteSourcePath(filePath)) {
+    throw new Error('Invalid file path: absolute paths and ".." segments are not allowed');
+  }
+}
+
+export function isAbsoluteSourcePath(sourcePath) {
+  const trimmedPath = sourcePath.trim();
+  const pathInput = trimmedPath.replaceAll('\\', '/');
+
+  // Use Windows semantics for drive-letter and UNC paths on any runner.
+  const windowsPath =
+    /^[a-zA-Z]:[\\/]/.test(trimmedPath) ||
+    trimmedPath.startsWith('\\\\') ||
+    trimmedPath.startsWith('//');
+  const pathApi = windowsPath ? path.win32 : path.posix;
+
+  return pathApi.isAbsolute(pathInput);
+}
+
 export function normalizeSourcePath(sourcePath, repositoryRoot) {
   const trimmedPath = sourcePath.trim();
   const pathInput = trimmedPath.replaceAll('\\', '/');
@@ -25,11 +50,4 @@ export function normalizeSourcePath(sourcePath, repositoryRoot) {
   }
 
   return normalizedPath.replaceAll('\\', '/');
-}
-
-export function normalizeLcovSourcePaths(content, repositoryRoot) {
-  return content.replace(
-    /^SF:([^\r\n]*)/gm,
-    (_directive, sourcePath) => `SF:${normalizeSourcePath(sourcePath, repositoryRoot)}`,
-  );
 }

@@ -258,7 +258,7 @@ end_of_record
     const previousCwd = process.cwd();
     process.chdir(tmpDir);
     try {
-      const { mergeLcov } = await import('../src/mergeLcov.js');
+      const { mergeLcov } = await import('../src/formats/lcov.js');
       const mergedPath = await mergeLcov(['job1.lcov', 'job2.lcov']);
       mergedDirs.push(path.dirname(mergedPath));
       const merged = await fs.readFile(mergedPath, 'utf8');
@@ -293,7 +293,7 @@ end_of_record
     const previousCwd = process.cwd();
     process.chdir(tmpDir);
     try {
-      const { mergeLcov } = await import('../src/mergeLcov.js');
+      const { mergeLcov } = await import('../src/formats/lcov.js');
       const mergedPath = await mergeLcov(['job1.lcov', 'job2.lcov']);
       mergedDirs.push(path.dirname(mergedPath));
       const merged = await fs.readFile(mergedPath, 'utf8');
@@ -334,7 +334,7 @@ end_of_record
     const previousCwd = process.cwd();
     process.chdir(path.join(tmpDir, 'packages/b'));
     try {
-      const { mergeLcov } = await import('../src/mergeLcov.js');
+      const { mergeLcov } = await import('../src/formats/lcov.js');
       const mergedPath = await mergeLcov(['job1.lcov', 'job2.lcov']);
       mergedDirs.push(path.dirname(mergedPath));
       const merged = await fs.readFile(mergedPath, 'utf8');

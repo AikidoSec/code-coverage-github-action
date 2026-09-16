@@ -71,7 +71,7 @@ export async function getAuthHeaders(region = '') {
 /**
  * Upload a coverage payload to Aikido.
  */
-export async function uploadCoverage(codeCoverageFileContent, region = '') {
+export async function uploadCoverage(codeCoverageFileContent, region = '', format = 'lcov') {
   const authHeaders = await getAuthHeaders(region);
   const client = new HttpClient('aikido-code-coverage');
 
@@ -80,6 +80,7 @@ export async function uploadCoverage(codeCoverageFileContent, region = '') {
     commit_sha: process.env.GITHUB_SHA,
     branch_name: process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME,
     code_coverage_file_content: gzipSync(codeCoverageFileContent).toString('base64'),
+    format,
   };
 
   const baseUrl = getBaseUrl(region);

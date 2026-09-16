@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { mergeLcov } from '../src/mergeLcov.js';
+import { mergeLcov } from '../src/formats/lcov.js';
 
 const SAMPLE = `SF:src/a.js
 DA:1,3

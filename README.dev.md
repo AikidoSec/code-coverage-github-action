@@ -55,22 +55,30 @@ The `.env` file has two groups of variables.
 
 GitHub Actions inputs are exposed as environment variables with an `INPUT_` prefix. Use the input name from `action.yml` in uppercase. **Keep hyphens — do not replace them with underscores.**
 
-| Variable                | Required | Description                                        |
-| ----------------------- | -------- | -------------------------------------------------- |
-| `INPUT_LCOV-FILE-PATHS` | yes      | Path(s) to LCOV file(s), e.g. `coverage/lcov.info` |
-| `INPUT_REGION`          | no       | `eu` (default), `us`, `au`, or `us-gov`            |
-| `INPUT_FAIL-ON-ERROR`   | no       | Defaults to `true`                                 |
+| Variable              | Required | Description                                            |
+| --------------------- | -------- | ------------------------------------------------------ |
+| `INPUT_FILE-PATHS`    | yes      | Path(s) to coverage file(s), e.g. `coverage/lcov.info` |
+| `INPUT_FORMAT`        | yes      | `lcov` or `cobertura`                                  |
+| `INPUT_REGION`        | no       | `eu` (default), `us`, `au`, or `us-gov`                |
+| `INPUT_FAIL-ON-ERROR` | no       | Defaults to `true`                                     |
 
 The published action authenticates with GitHub OIDC (`core.getIDToken`). That only works
 inside GitHub Actions when the job has `permissions: id-token: write`. Local `npm run local`
 runs can still exercise file discovery and merge, but the upload step will fail without a
 real OIDC token.
 
-For multiple LCOV files, separate paths with newlines, spaces, or commas (same parsing as in CI):
+For multiple coverage files, separate paths with newlines, spaces, or commas (same parsing as in CI):
 
 ```dotenv
-INPUT_LCOV-FILE-PATHS=packages/a/coverage/lcov.info
+INPUT_FILE-PATHS=packages/a/coverage/lcov.info
 packages/b/coverage/lcov.info
+INPUT_FORMAT=lcov
+```
+
+```dotenv
+INPUT_FILE-PATHS=packages/a/coverage/cobertura.xml
+packages/b/coverage/cobertura.xml
+INPUT_FORMAT=cobertura
 ```
 
 #### GitHub context
@@ -83,9 +91,9 @@ In CI, GitHub sets repository metadata automatically. Locally, set these in `.en
 | `GITHUB_SHA`        | `abc123def456...` (any valid commit SHA) |
 | `GITHUB_REF_NAME`   | `main`                                   |
 
-### 3. Provide an LCOV file
+### 3. Provide a coverage file
 
-Point `INPUT_LCOV-FILE-PATHS` at an existing LCOV report. To generate one in this repo:
+Point `INPUT_FILE-PATHS` at an existing report. Set `INPUT_FORMAT=cobertura` when using Cobertura XML. To generate an LCOV file in this repo:
 
 ```bash
 npm test
@@ -151,7 +159,9 @@ action.yml          Action metadata and inputs
 src/
   main.js           Entry point (used for local runs)
   inputs.js         Reads action inputs via @actions/core
-  mergeLcov.js      Merges multiple LCOV files
+  merge.js          Shared coverage merge (canonical records)
+  formats/lcov.js   LCOV normalize / parse / merge
+  formats/cobertura.js  Cobertura normalize / parse / merge
   aikido.js         Uploads coverage to the Aikido API
 dist/
   index.js          Bundled output (used in CI workflows)

@@ -89,10 +89,13 @@ describe('main.js security - single file path validation', () => {
     mockGetIDToken.mockResolvedValue('oidc-jwt');
   });
 
-  function setLcovInput(value) {
+  function setCoverageInput(filePaths, format = 'lcov') {
     mockGetInput.mockImplementation((name) => {
-      if (name === 'lcov-file-paths') {
-        return value;
+      if (name === 'file-paths') {
+        return filePaths;
+      }
+      if (name === 'format') {
+        return format;
       }
       if (name === 'region') {
         return 'eu';
@@ -123,7 +126,7 @@ describe('main.js security - single file path validation', () => {
         await fs.writeFile('lcov.info', 'TN:\nSF:test.js\nend_of_record\n');
 
         // Attempt to use path traversal
-        setLcovInput('../../../etc/passwd');
+        setCoverageInput('../../../etc/passwd');
 
         await run();
 
@@ -143,7 +146,7 @@ describe('main.js security - single file path validation', () => {
       process.chdir(tmpDir);
 
       try {
-        setLcovInput('../../sensitive/file.txt');
+        setCoverageInput('../../sensitive/file.txt');
 
         await run();
 
@@ -163,7 +166,7 @@ describe('main.js security - single file path validation', () => {
       process.chdir(tmpDir);
 
       try {
-        setLcovInput('coverage/../../../etc/passwd');
+        setCoverageInput('coverage/../../../etc/passwd');
 
         await run();
 
@@ -185,7 +188,7 @@ describe('main.js security - single file path validation', () => {
       process.chdir(tmpDir);
 
       try {
-        setLcovInput('/etc/passwd');
+        setCoverageInput('/etc/passwd');
 
         await run();
 
@@ -207,7 +210,7 @@ describe('main.js security - single file path validation', () => {
       try {
         // Windows absolute path - only test on Windows
         if (process.platform === 'win32') {
-          setLcovInput('C:\\Windows\\System32\\config\\SAM');
+          setCoverageInput('C:\\Windows\\System32\\config\\SAM');
 
           await run();
 
@@ -219,7 +222,7 @@ describe('main.js security - single file path validation', () => {
           expect(mockPost).not.toHaveBeenCalled();
         } else {
           // On Unix, test with a Unix absolute path instead
-          setLcovInput('/var/log/system.log');
+          setCoverageInput('/var/log/system.log');
 
           await run();
 
@@ -243,7 +246,7 @@ describe('main.js security - single file path validation', () => {
 
       try {
         await fs.writeFile('lcov.info', 'TN:\nSF:src/test.js\nDA:1,5\nend_of_record\n');
-        mockGetInput.mockReturnValue('lcov.info');
+        setCoverageInput('lcov.info');
 
         await run();
 
@@ -260,7 +263,7 @@ describe('main.js security - single file path validation', () => {
       try {
         await fs.writeFile('lcov1.info', 'TN:\nSF:src/a.js\nDA:1,5\nend_of_record\n');
         await fs.writeFile('lcov2.info', 'TN:\nSF:src/b.js\nDA:1,3\nend_of_record\n');
-        mockGetInput.mockReturnValue('lcov1.info lcov2.info');
+        setCoverageInput('lcov1.info lcov2.info');
 
         await run();
 
@@ -282,7 +285,7 @@ describe('main.js security - single file path validation', () => {
         const lcovContent = 'TN:\nSF:src/test.js\nDA:1,5\nend_of_record\n';
         await fs.writeFile('lcov.info', lcovContent);
 
-        setLcovInput('lcov.info');
+        setCoverageInput('lcov.info');
 
         await run();
 
@@ -297,6 +300,7 @@ describe('main.js security - single file path validation', () => {
 
         const body = JSON.parse(rawBody);
         expect(decodeCoverageContent(body.code_coverage_file_content)).toBe(lcovContent);
+        expect(body.format).toBe('lcov');
         expect(body.repo_name).toBe('org/repo');
         expect(body.commit_sha).toBe('abc123');
         expect(headers['Content-Type']).toBe('application/json');
@@ -323,7 +327,7 @@ describe('main.js security - single file path validation', () => {
         const lcovContent = 'TN:\nSF:src/app.js\nDA:1,10\nend_of_record\n';
         await fs.writeFile('coverage/lcov.info', lcovContent);
 
-        setLcovInput('coverage/lcov.info');
+        setCoverageInput('coverage/lcov.info');
 
         await run();
 
@@ -350,7 +354,7 @@ describe('main.js security - single file path validation', () => {
       try {
         const absoluteSourcePath = path.join(tmpDir, 'src/app.js');
         await fs.writeFile('lcov.info', `TN:\nSF:${absoluteSourcePath}\nDA:1,10\nend_of_record\n`);
-        setLcovInput('lcov.info');
+        setCoverageInput('lcov.info');
 
         await run();
 
@@ -373,7 +377,7 @@ describe('main.js security - single file path validation', () => {
         process.env.GITHUB_WORKSPACE = 'D:\\a\\repo\\repo';
         const lcovContent = 'TN:\nSF:D:\\a\\repo\\repo\\src\\app.cs\nDA:1,10\nend_of_record\n';
         await fs.writeFile('lcov.info', lcovContent);
-        setLcovInput('lcov.info');
+        setCoverageInput('lcov.info');
 
         await run();
 
@@ -400,7 +404,7 @@ describe('main.js security - single file path validation', () => {
         await fs.writeFile('lcov1.info', lcov1);
         await fs.writeFile('lcov2.info', lcov2);
 
-        setLcovInput('lcov1.info lcov2.info');
+        setCoverageInput('lcov1.info lcov2.info');
 
         await run();
 
@@ -420,7 +424,7 @@ describe('main.js security - single file path validation', () => {
         await fs.writeFile('lcov1.info', 'TN:\nSF:src/a.js\nDA:1,5\nend_of_record\n');
 
         // One valid path, one with traversal
-        setLcovInput('lcov1.info ../../../etc/passwd');
+        setCoverageInput('lcov1.info ../../../etc/passwd');
 
         await run();
 
@@ -439,7 +443,7 @@ describe('main.js security - single file path validation', () => {
         await fs.writeFile('lcov1.info', 'TN:\nSF:src/a.js\nDA:1,5\nend_of_record\n');
 
         // One valid path, one absolute
-        setLcovInput('lcov1.info /etc/passwd');
+        setCoverageInput('lcov1.info /etc/passwd');
 
         await run();
 
@@ -463,7 +467,7 @@ describe('main.js security - single file path validation', () => {
           }
           return false;
         });
-        setLcovInput('../../../etc/passwd');
+        setCoverageInput('../../../etc/passwd');
 
         await run();
 
@@ -487,7 +491,7 @@ describe('main.js security - single file path validation', () => {
 
       try {
         // Simulate attacker trying to read /etc/passwd
-        setLcovInput('/etc/passwd');
+        setCoverageInput('/etc/passwd');
 
         await run();
 
@@ -511,7 +515,7 @@ describe('main.js security - single file path validation', () => {
 
       try {
         // Simulate attacker trying to read runner secrets or environment files
-        setLcovInput('../../.env');
+        setCoverageInput('../../.env');
 
         await run();
 
@@ -535,7 +539,7 @@ describe('main.js security - single file path validation', () => {
 
       try {
         // Complex path traversal attempt
-        setLcovInput('coverage/../../../../../../home/runner/.ssh/id_rsa');
+        setCoverageInput('coverage/../../../../../../home/runner/.ssh/id_rsa');
 
         await run();
 
@@ -561,7 +565,7 @@ describe('main.js security - single file path validation', () => {
 
       try {
         // Use a path that would fail validation
-        setLcovInput('../sensitive.txt');
+        setCoverageInput('../sensitive.txt');
 
         await run();
 
@@ -577,6 +581,114 @@ describe('main.js security - single file path validation', () => {
       } finally {
         process.chdir(previousCwd);
       }
+    });
+  });
+
+  describe('cobertura support', () => {
+    it('uploads a single cobertura file with format cobertura', async () => {
+      const previousCwd = process.cwd();
+      process.chdir(tmpDir);
+
+      try {
+        const xml = `<?xml version="1.0" ?>
+<coverage line-rate="1" branch-rate="1">
+  <sources><source>.</source></sources>
+  <packages>
+    <package name="">
+      <classes>
+        <class name="a" filename="src/a.js">
+          <lines>
+            <line number="1" hits="1" branch="false"/>
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>
+`;
+        await fs.writeFile('cobertura.xml', xml);
+        setCoverageInput('cobertura.xml', 'cobertura');
+
+        await run();
+
+        expect(mockSetFailed).not.toHaveBeenCalled();
+        expect(mockPost).toHaveBeenCalledTimes(1);
+        const [, rawBody] = mockPost.mock.calls[0];
+        const body = JSON.parse(rawBody);
+        expect(body.format).toBe('cobertura');
+        const uploaded = decodeCoverageContent(body.code_coverage_file_content);
+        expect(uploaded).toContain('filename="src/a.js"');
+      } finally {
+        process.chdir(previousCwd);
+      }
+    });
+
+    it('merges multiple cobertura files before upload', async () => {
+      const previousCwd = process.cwd();
+      process.chdir(tmpDir);
+
+      try {
+        await fs.mkdir('job1', { recursive: true });
+        await fs.mkdir('job2', { recursive: true });
+        await fs.writeFile(
+          'job1/cobertura.xml',
+          `<?xml version="1.0" ?>
+<coverage>
+  <sources><source>.</source></sources>
+  <packages><package name=""><classes>
+    <class name="a" filename="src/a.js">
+      <lines><line number="1" hits="1" branch="false"/></lines>
+    </class>
+  </classes></package></packages>
+</coverage>
+`,
+        );
+        await fs.writeFile(
+          'job2/cobertura.xml',
+          `<?xml version="1.0" ?>
+<coverage>
+  <sources><source>.</source></sources>
+  <packages><package name=""><classes>
+    <class name="a" filename="src/a.js">
+      <lines><line number="1" hits="3" branch="false"/></lines>
+    </class>
+  </classes></package></packages>
+</coverage>
+`,
+        );
+        setCoverageInput('job1/cobertura.xml job2/cobertura.xml', 'cobertura');
+
+        await run();
+
+        expect(mockSetFailed).not.toHaveBeenCalled();
+        const [, rawBody] = mockPost.mock.calls[0];
+        const body = JSON.parse(rawBody);
+        expect(body.format).toBe('cobertura');
+        const uploaded = decodeCoverageContent(body.code_coverage_file_content);
+        expect(uploaded).toMatch(/number="1"[^>]*hits="3"/);
+      } finally {
+        process.chdir(previousCwd);
+      }
+    });
+
+    it('rejects when format is invalid', async () => {
+      mockGetInput.mockImplementation((name) => {
+        if (name === 'file-paths') {
+          return 'lcov.info';
+        }
+        if (name === 'format') {
+          return 'jacoco';
+        }
+        if (name === 'region') {
+          return 'eu';
+        }
+        return '';
+      });
+
+      await run();
+
+      expect(mockSetFailed).toHaveBeenCalledWith(expect.stringContaining('Invalid format'));
+      expect(mockPost).not.toHaveBeenCalled();
     });
   });
 });

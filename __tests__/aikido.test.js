@@ -132,6 +132,7 @@ describe('uploadCoverage', () => {
       commit_sha: 'abc123',
       branch_name: 'main',
       code_coverage_file_content: expect.any(String),
+      format: 'lcov',
     });
     expect(decodeCoverageContent(body.code_coverage_file_content)).toBe(codeCoverageFileContent);
     expect(headers).toEqual({
@@ -139,6 +140,16 @@ describe('uploadCoverage', () => {
       'Content-Type': 'application/json',
       Accept: 'application/json',
     });
+  });
+
+  it('posts cobertura format when requested', async () => {
+    const xml = '<coverage/>';
+    await uploadCoverage(xml, 'eu', 'cobertura');
+
+    const [, rawBody] = mockPost.mock.calls[0];
+    const body = JSON.parse(rawBody);
+    expect(body.format).toBe('cobertura');
+    expect(decodeCoverageContent(body.code_coverage_file_content)).toBe(xml);
   });
 
   it('throws with reason_phrase from the JSON body', async () => {

@@ -1,4 +1,5 @@
-import { normalizeLcovSourcePaths, normalizeSourcePath } from '../src/lcovPaths.js';
+import { normalizeSourcePath } from '../src/paths.js';
+import { normalizeLcovSourcePaths } from '../src/formats/lcov.js';
 
 describe('LCOV source path normalization', () => {
   it('makes a Windows runner path repository-relative', () => {

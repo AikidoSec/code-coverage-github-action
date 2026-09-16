@@ -97,8 +97,11 @@ describe('e2e multi-region OIDC and upload URLs', () => {
 
   function configureInputs(region) {
     mockGetInput.mockImplementation((name) => {
-      if (name === 'lcov-file-paths') {
+      if (name === 'file-paths') {
         return 'lcov.info';
+      }
+      if (name === 'format') {
+        return 'lcov';
       }
       if (name === 'region') {
         return region;
@@ -129,6 +132,7 @@ describe('e2e multi-region OIDC and upload URLs', () => {
 
         const body = JSON.parse(rawBody);
         expect(decodeCoverageContent(body.code_coverage_file_content)).toBe(lcovContent);
+        expect(body.format).toBe('lcov');
         expect(headers).toEqual({
           Authorization: 'Bearer oidc-jwt',
           'Content-Type': 'application/json',
