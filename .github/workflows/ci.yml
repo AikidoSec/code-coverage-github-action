@@ -119,16 +119,9 @@ jobs:
       - name: Test Aikido Upload Code Coverage action in workflow with LCOV format
         uses: ./
         with:
-          file-paths: coverage/lcov.info
-          format: lcov
-        env:
-          ACTIONS_STEP_DEBUG: 'true'
-
-      - name: Test Aikido Upload Code Coverage action in workflow with Cobertura format
-        uses: ./
-        with:
-          file-paths: coverage/cobertura.xml
-          format: cobertura
+          file-paths: |
+            coverage/lcov.info
+            coverage/cobertura.xml
         env:
           ACTIONS_STEP_DEBUG: 'true'
           DEVELOPMENT: 'true'

@@ -1,10 +1,11 @@
 # Aikido Code Coverage GitHub Action
 
-Collect an [LCOV](https://github.com/linux-test-project/lcov) or [Cobertura](https://cobertura.github.io/cobertura/) XML code coverage report produced by your test suite and upload it to [Aikido](https://www.aikido.dev/).
+Collect [LCOV](https://github.com/linux-test-project/lcov) or [Cobertura](https://cobertura.github.io/cobertura/) XML code coverage reports produced by your test suite and upload them to [Aikido](https://www.aikido.dev/).
 
-The action reads one or more reports from the paths you provide. When multiple reports are
-given, it merges them into a single file before upload. It then POSTs the coverage content to the Aikido CI code coverage API together with the
-repository name, commit SHA, branch name, and format (`lcov` or `cobertura`).
+The action reads one or more reports from the paths you provide and uploads them **as-is** (no local merge), together with:
+
+- a **`repository_source_paths`** list (filtered repo source paths) for path matching on the backend
+- an **EOF** map (line counts for covered source files) so the backend can drop coverage past end-of-file
 
 Authentication uses GitHub OIDC (keyless). The job that runs this action must grant
 `id-token: write`. No API token or repository secret is required.
@@ -48,6 +49,8 @@ jobs:
       id-token: write # required for upload
       contents: read # required for upload
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: coverage
@@ -57,25 +60,21 @@ jobs:
         uses: AikidoSec/code-coverage-github-action@v1.1.0
         with:
           file-paths: coverage/lcov.info
-          format: 'lcov'
 ```
 
 ### Cobertura XML
-
-Set `format` to `cobertura` when uploading Cobertura reports:
 
 ```yaml
 - name: Upload coverage to Aikido
   uses: AikidoSec/code-coverage-github-action@v1.1.0
   with:
     file-paths: coverage/cobertura.xml
-    format: cobertura
 ```
 
 ### Uploading multiple reports
 
-Provide more than one path when separate packages or CI shards each emit their own report. The
-action merges all inputs into one upload. All paths must use the same format (set via `format`).
+Provide more than one path when separate packages or CI shards each emit their own report.
+Mixed LCOV and Cobertura inputs are supported; the backend merges them.
 
 ```yaml
 - name: Upload coverage to Aikido
@@ -83,18 +82,7 @@ action merges all inputs into one upload. All paths must use the same format (se
   with:
     file-paths: |
       packages/a/coverage/lcov.info
-      packages/b/coverage/lcov.info
-    format: 'lcov'
-```
-
-```yaml
-- name: Upload coverage to Aikido
-  uses: AikidoSec/code-coverage-github-action@v1.1.0
-  with:
-    file-paths: |
-      packages/a/coverage/cobertura.xml
       packages/b/coverage/cobertura.xml
-    format: cobertura
 ```
 
 ### Monorepo with matrix jobs
@@ -143,6 +131,8 @@ jobs:
       id-token: write
       contents: read
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: coverage-reports
@@ -156,7 +146,6 @@ jobs:
             coverage-reports/packages/a/coverage/lcov.info
             coverage-reports/packages/b/coverage/lcov.info
             coverage-reports/packages/c/coverage/lcov.info
-          format: lcov
 ```
 
 `merge-multiple: true` extracts every matched artifact into one directory while preserving
@@ -168,12 +157,11 @@ the matrix test jobs.
 
 ## Inputs
 
-| Input           | Required | Default | Description                                                                           |
-| --------------- | -------- | ------- | ------------------------------------------------------------------------------------- |
-| `file-paths`    | yes      | —       | Path(s) to coverage report(s). Newline-, space-, or comma-separated.                  |
-| `format`        | yes      | _       | Format of the coverage report: `lcov` or `cobertura`.                                 |
-| `region`        | no       | `eu`    | Aikido region for upload and OIDC audience: `eu`, `us`, `au`, or `us-gov`.            |
-| `fail-on-error` | no       | `true`  | Fail the action if reading or upload fails. Set to `false` to emit a warning instead. |
+| Input           | Required | Default | Description                                                                                         |
+| --------------- | -------- | ------- | --------------------------------------------------------------------------------------------------- |
+| `file-paths`    | yes      | —       | Path(s) to coverage report(s). Newline-, space-, or comma-separated. Format detected from filename. |
+| `region`        | no       | `eu`    | Aikido region for upload and OIDC audience: `eu`, `us`, `au`, or `us-gov`.                          |
+| `fail-on-error` | no       | `true`  | Fail the action if reading or upload fails. Set to `false` to emit a warning instead.               |
 
 ### Region
 
@@ -185,7 +173,6 @@ token audience.
   uses: AikidoSec/code-coverage-github-action@v1.1.0
   with:
     file-paths: coverage/lcov.info
-    format: lcov
     region: us
 ```
 
@@ -220,6 +207,8 @@ jobs:
       id-token: write # required for upload
       contents: read # required for upload
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: coverage
@@ -229,5 +218,4 @@ jobs:
         uses: AikidoSec/code-coverage-github-action@v1.1.0
         with:
           file-paths: coverage/lcov.info
-          format: lcov
 ```

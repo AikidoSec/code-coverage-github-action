@@ -13,7 +13,7 @@ export function validateFilePath(filePath) {
 
 export function isAbsoluteSourcePath(sourcePath) {
   const trimmedPath = sourcePath.trim();
-  const pathInput = trimmedPath.replaceAll('\\', '/');
+  const pathInput = normalizePathSeparators(trimmedPath);
 
   // Use Windows semantics for drive-letter and UNC paths on any runner.
   const windowsPath =
@@ -25,9 +25,14 @@ export function isAbsoluteSourcePath(sourcePath) {
   return pathApi.isAbsolute(pathInput);
 }
 
+/** Trim, use forward slashes, drop a leading `./`. */
+export function normalizePathSeparators(sourcePath) {
+  return sourcePath.trim().replaceAll('\\', '/').replace(/^\.\//, '');
+}
+
 export function normalizeSourcePath(sourcePath, repositoryRoot) {
   const trimmedPath = sourcePath.trim();
-  const pathInput = trimmedPath.replaceAll('\\', '/');
+  const pathInput = normalizePathSeparators(trimmedPath);
 
   // Use Windows semantics for drive-letter and UNC paths on any runner.
   const windowsPath =
@@ -49,5 +54,5 @@ export function normalizeSourcePath(sourcePath, repositoryRoot) {
     throw new Error(`Invalid source path outside the repository: ${sourcePath}`);
   }
 
-  return normalizedPath.replaceAll('\\', '/');
+  return normalizePathSeparators(normalizedPath);
 }

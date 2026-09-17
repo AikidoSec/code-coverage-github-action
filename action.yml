@@ -1,5 +1,5 @@
 name: 'Aikido Code Coverage'
-description: 'Collect an LCOV or Cobertura code coverage report and upload it to Aikido.'
+description: 'Collect LCOV or Cobertura coverage reports and upload them to Aikido.'
 author: 'Aikido Security'
 branding:
   icon: 'bar-chart-2'
@@ -7,7 +7,7 @@ branding:
 
 inputs:
   file-paths:
-    description: 'Path(s) to the code coverage report(s). Separate multiple entries with newlines'
+    description: 'Path(s) to the code coverage report(s). Separate multiple entries with newlines. Format is detected from each filename (e.g. lcov.info, *.lcov, *cobertura*.xml).'
     required: true
   region:
     description: 'Aikido region for upload and OIDC audience. One of: eu, us, au, us-gov.'
@@ -17,9 +17,6 @@ inputs:
     description: 'Fail the action if discovery or upload fails. Set to false to warn instead.'
     required: false
     default: 'true'
-  format:
-    description: 'Format of the coverage report. One of: lcov, cobertura.'
-    required: true
 
 runs:
   using: 'node24'

@@ -16,16 +16,10 @@ export function readInputs() {
 
   const failOnError = core.getBooleanInput('fail-on-error');
   const region = core.getInput('region', { required: false, trimWhitespace: true }) || 'eu';
-  const format = core.getInput('format', { required: true, trimWhitespace: true });
-
-  if (format !== 'lcov' && format !== 'cobertura') {
-    throw new Error('Invalid format: must be lcov or cobertura');
-  }
 
   return {
     filePaths,
     failOnError,
     region,
-    format,
   };
 }

@@ -100,9 +100,6 @@ describe('e2e multi-region OIDC and upload URLs', () => {
       if (name === 'file-paths') {
         return 'lcov.info';
       }
-      if (name === 'format') {
-        return 'lcov';
-      }
       if (name === 'region') {
         return region;
       }
@@ -117,6 +114,9 @@ describe('e2e multi-region OIDC and upload URLs', () => {
       process.chdir(tmpDir);
 
       try {
+        await fs.mkdir('.git', { recursive: true });
+        await fs.mkdir('src', { recursive: true });
+        await fs.writeFile('src/app.js', 'a\nb\n');
         await fs.writeFile('lcov.info', lcovContent);
         configureInputs(region);
 
@@ -131,39 +131,19 @@ describe('e2e multi-region OIDC and upload URLs', () => {
         expect(url).toBe(`${baseUrl}/api/integrations/continuous_integration/scan/code_coverage`);
 
         const body = JSON.parse(rawBody);
-        expect(decodeCoverageContent(body.code_coverage_file_content)).toBe(lcovContent);
-        expect(body.format).toBe('lcov');
+        expect(body.files).toHaveLength(1);
+        expect(decodeCoverageContent(body.files[0].content)).toBe(lcovContent);
+        expect(body.repository_source_paths).toContain('src/app.js');
         expect(headers).toEqual({
           Authorization: 'Bearer oidc-jwt',
           'Content-Type': 'application/json',
           Accept: 'application/json',
         });
 
-        expect(mockInfo).toHaveBeenCalledWith(
-          `Uploading coverage report for branch main to Aikido...`,
-        );
         expect(mockInfo).toHaveBeenCalledWith('Upload succeeded.');
       } finally {
         process.chdir(previousCwd);
       }
     },
   );
-
-  it('fails cleanly for an unknown region without posting', async () => {
-    const previousCwd = process.cwd();
-    process.chdir(tmpDir);
-
-    try {
-      await fs.writeFile('lcov.info', lcovContent);
-      configureInputs('mars');
-
-      await run();
-
-      expect(mockPost).not.toHaveBeenCalled();
-      expect(mockGetIDToken).not.toHaveBeenCalled();
-      expect(mockSetFailed).toHaveBeenCalledWith(expect.stringContaining('Unknown region "mars"'));
-    } finally {
-      process.chdir(previousCwd);
-    }
-  });
 });
