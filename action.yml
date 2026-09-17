@@ -1,13 +1,13 @@
 name: 'Aikido Code Coverage'
-description: 'Collect an LCOV code coverage report and upload it to Aikido.'
+description: 'Collect LCOV or Cobertura coverage reports and upload them to Aikido.'
 author: 'Aikido Security'
 branding:
   icon: 'bar-chart-2'
   color: 'purple'
 
 inputs:
-  lcov-file-paths:
-    description: 'Path(s) to the LCOV coverage report(s). Separate multiple entries with newlines'
+  file-paths:
+    description: 'Path(s) to the code coverage report(s). Separate multiple entries with newlines. Format is detected from each filename (e.g. lcov.info, *.lcov, *cobertura*.xml).'
     required: true
   region:
     description: 'Aikido region for upload and OIDC audience. One of: eu, us, au, us-gov.'

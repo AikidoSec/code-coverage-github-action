@@ -95,7 +95,8 @@ function isLikelySourceFile(relativePath) {
     (lower.endsWith('.info') && lower.includes('lcov')) ||
     lower === 'coverage-final.json' ||
     lower === 'clover.xml' ||
-    lower === 'cobertura.xml'
+    lower === 'cobertura.xml' ||
+    (lower.endsWith('.xml') && lower.includes('cobertura'))
   ) {
     return false;
   }

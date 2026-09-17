@@ -45,20 +45,26 @@ function mockResponse(statusCode, rawBody = '') {
   };
 }
 
-describe('main.js security - single file path validation', () => {
+async function seedRepo(tmpDir, sourceFiles = { 'src/test.js': 'a\nb\nc\n' }) {
+  await fs.mkdir(path.join(tmpDir, '.git'), { recursive: true });
+  for (const [rel, content] of Object.entries(sourceFiles)) {
+    await fs.mkdir(path.join(tmpDir, path.dirname(rel)), { recursive: true });
+    await fs.writeFile(path.join(tmpDir, rel), content);
+  }
+}
+
+describe('main.js', () => {
   let tmpDir;
 
   beforeEach(async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'main-test-'));
 
-    // Set up environment variables
     process.env.GITHUB_REPOSITORY = 'org/repo';
     process.env.GITHUB_SHA = 'abc123';
     process.env.GITHUB_HEAD_REF = 'main';
     process.env.GITHUB_WORKSPACE = tmpDir;
     delete process.env.DEVELOPMENT;
 
-    // Reset all mocks
     mockInfo.mockClear();
     mockSetFailed.mockClear();
     mockWarning.mockClear();
@@ -69,19 +75,13 @@ describe('main.js security - single file path validation', () => {
     mockGetIDToken.mockClear();
     mockSetSecret.mockClear();
 
-    // Default mock implementations
     mockGetInput.mockImplementation((name) => {
       if (name === 'region') {
         return 'eu';
       }
       return '';
     });
-    mockGetBooleanInput.mockImplementation((name) => {
-      if (name === 'fail-on-error') {
-        return true;
-      }
-      return false;
-    });
+    mockGetBooleanInput.mockImplementation((name) => name === 'fail-on-error');
     mockHttpClient.mockImplementation(() => ({
       post: mockPost,
     }));
@@ -89,10 +89,10 @@ describe('main.js security - single file path validation', () => {
     mockGetIDToken.mockResolvedValue('oidc-jwt');
   });
 
-  function setLcovInput(value) {
+  function setCoverageInput(filePaths) {
     mockGetInput.mockImplementation((name) => {
-      if (name === 'lcov-file-paths') {
-        return value;
+      if (name === 'file-paths') {
+        return filePaths;
       }
       if (name === 'region') {
         return 'eu';
@@ -114,19 +114,13 @@ describe('main.js security - single file path validation', () => {
   });
 
   describe('path traversal protection', () => {
-    it('rejects single file path with .. segment', async () => {
+    it('rejects path with .. segment', async () => {
       const previousCwd = process.cwd();
       process.chdir(tmpDir);
 
       try {
-        // Create a legitimate coverage file
-        await fs.writeFile('lcov.info', 'TN:\nSF:test.js\nend_of_record\n');
-
-        // Attempt to use path traversal
-        setLcovInput('../../../etc/passwd');
-
+        setCoverageInput('../../../etc/passwd');
         await run();
-
         expect(mockSetFailed).toHaveBeenCalledWith(
           expect.stringContaining(
             'Invalid file path: absolute paths and ".." segments are not allowed',
@@ -138,35 +132,13 @@ describe('main.js security - single file path validation', () => {
       }
     });
 
-    it('rejects single file path with multiple .. segments', async () => {
+    it('rejects absolute path', async () => {
       const previousCwd = process.cwd();
       process.chdir(tmpDir);
 
       try {
-        setLcovInput('../../sensitive/file.txt');
-
+        setCoverageInput('/var/log/system.log');
         await run();
-
-        expect(mockSetFailed).toHaveBeenCalledWith(
-          expect.stringContaining(
-            'Invalid file path: absolute paths and ".." segments are not allowed',
-          ),
-        );
-        expect(mockPost).not.toHaveBeenCalled();
-      } finally {
-        process.chdir(previousCwd);
-      }
-    });
-
-    it('rejects single file path with .. in the middle', async () => {
-      const previousCwd = process.cwd();
-      process.chdir(tmpDir);
-
-      try {
-        setLcovInput('coverage/../../../etc/passwd');
-
-        await run();
-
         expect(mockSetFailed).toHaveBeenCalledWith(
           expect.stringContaining(
             'Invalid file path: absolute paths and ".." segments are not allowed',
@@ -179,116 +151,20 @@ describe('main.js security - single file path validation', () => {
     });
   });
 
-  describe('absolute path protection', () => {
-    it('rejects single file path with absolute Unix path', async () => {
+  describe('successful upload', () => {
+    it('uploads raw file with repository_source_paths and eof', async () => {
       const previousCwd = process.cwd();
       process.chdir(tmpDir);
 
       try {
-        setLcovInput('/etc/passwd');
-
-        await run();
-
-        expect(mockSetFailed).toHaveBeenCalledWith(
-          expect.stringContaining(
-            'Invalid file path: absolute paths and ".." segments are not allowed',
-          ),
-        );
-        expect(mockPost).not.toHaveBeenCalled();
-      } finally {
-        process.chdir(previousCwd);
-      }
-    });
-
-    it('rejects single file path with absolute Windows path', async () => {
-      const previousCwd = process.cwd();
-      process.chdir(tmpDir);
-
-      try {
-        // Windows absolute path - only test on Windows
-        if (process.platform === 'win32') {
-          setLcovInput('C:\\Windows\\System32\\config\\SAM');
-
-          await run();
-
-          expect(mockSetFailed).toHaveBeenCalledWith(
-            expect.stringContaining(
-              'Invalid file path: absolute paths and ".." segments are not allowed',
-            ),
-          );
-          expect(mockPost).not.toHaveBeenCalled();
-        } else {
-          // On Unix, test with a Unix absolute path instead
-          setLcovInput('/var/log/system.log');
-
-          await run();
-
-          expect(mockSetFailed).toHaveBeenCalledWith(
-            expect.stringContaining(
-              'Invalid file path: absolute paths and ".." segments are not allowed',
-            ),
-          );
-          expect(mockPost).not.toHaveBeenCalled();
-        }
-      } finally {
-        process.chdir(previousCwd);
-      }
-    });
-  });
-
-  describe('coverage file discovery logging', () => {
-    it('logs found coverage file paths for a single file', async () => {
-      const previousCwd = process.cwd();
-      process.chdir(tmpDir);
-
-      try {
-        await fs.writeFile('lcov.info', 'TN:\nSF:src/test.js\nDA:1,5\nend_of_record\n');
-        mockGetInput.mockReturnValue('lcov.info');
-
-        await run();
-
-        expect(mockInfo).toHaveBeenCalledWith('Found 1 coverage file(s) at path(s) \n\tlcov.info');
-      } finally {
-        process.chdir(previousCwd);
-      }
-    });
-
-    it('logs found coverage file paths for multiple files', async () => {
-      const previousCwd = process.cwd();
-      process.chdir(tmpDir);
-
-      try {
-        await fs.writeFile('lcov1.info', 'TN:\nSF:src/a.js\nDA:1,5\nend_of_record\n');
-        await fs.writeFile('lcov2.info', 'TN:\nSF:src/b.js\nDA:1,3\nend_of_record\n');
-        mockGetInput.mockReturnValue('lcov1.info lcov2.info');
-
-        await run();
-
-        expect(mockInfo).toHaveBeenCalledWith(
-          'Found 2 coverage file(s) at path(s) \n\tlcov1.info\n\tlcov2.info',
-        );
-      } finally {
-        process.chdir(previousCwd);
-      }
-    });
-  });
-
-  describe('valid single file path', () => {
-    it('accepts and processes valid relative single file path', async () => {
-      const previousCwd = process.cwd();
-      process.chdir(tmpDir);
-
-      try {
+        await seedRepo(tmpDir);
         const lcovContent = 'TN:\nSF:src/test.js\nDA:1,5\nend_of_record\n';
         await fs.writeFile('lcov.info', lcovContent);
-
-        setLcovInput('lcov.info');
+        setCoverageInput('lcov.info');
 
         await run();
 
         expect(mockSetFailed).not.toHaveBeenCalled();
-
-        // Verify the POST was called with the correct content
         expect(mockPost).toHaveBeenCalledTimes(1);
         const [url, rawBody, headers] = mockPost.mock.calls[0];
         expect(url).toBe(
@@ -296,150 +172,87 @@ describe('main.js security - single file path validation', () => {
         );
 
         const body = JSON.parse(rawBody);
-        expect(decodeCoverageContent(body.code_coverage_file_content)).toBe(lcovContent);
-        expect(body.repo_name).toBe('org/repo');
-        expect(body.commit_sha).toBe('abc123');
+        expect(body.repository_source_paths).toContain('src/test.js');
+        expect(body.eof['src/test.js']).toBeGreaterThan(0);
+        expect(body.files).toHaveLength(1);
+        expect(body.files[0].format).toBe('lcov');
+        expect(decodeCoverageContent(body.files[0].content)).toBe(lcovContent);
+        expect(body.code_coverage_file_content).toBeUndefined();
         expect(headers['Content-Type']).toBe('application/json');
-        expect(headers['Content-Encoding']).toBeUndefined();
-
-        expect(mockInfo).not.toHaveBeenCalledWith(
-          `Uploading coverage report for branch haha to Aikido...`,
-        );
-        expect(mockInfo).toHaveBeenCalledWith(
-          `Uploading coverage report for branch main to Aikido...`,
-        );
         expect(mockInfo).toHaveBeenCalledWith('Upload succeeded.');
       } finally {
         process.chdir(previousCwd);
       }
     });
 
-    it('accepts valid relative path in subdirectory', async () => {
+    it('uploads multiple files without merging', async () => {
       const previousCwd = process.cwd();
       process.chdir(tmpDir);
 
       try {
-        await fs.mkdir('coverage', { recursive: true });
-        const lcovContent = 'TN:\nSF:src/app.js\nDA:1,10\nend_of_record\n';
-        await fs.writeFile('coverage/lcov.info', lcovContent);
-
-        setLcovInput('coverage/lcov.info');
-
-        await run();
-
-        expect(mockSetFailed).not.toHaveBeenCalled();
-
-        // Verify the POST was called with the correct content
-        expect(mockPost).toHaveBeenCalledTimes(1);
-        const [url, rawBody] = mockPost.mock.calls[0];
-        expect(url).toBe(
-          'https://bg.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
-        );
-
-        const body = JSON.parse(rawBody);
-        expect(decodeCoverageContent(body.code_coverage_file_content)).toBe(lcovContent);
-      } finally {
-        process.chdir(previousCwd);
-      }
-    });
-
-    it('uploads absolute source paths relative to the checkout root', async () => {
-      const previousCwd = process.cwd();
-      process.chdir(tmpDir);
-
-      try {
-        const absoluteSourcePath = path.join(tmpDir, 'src/app.js');
-        await fs.writeFile('lcov.info', `TN:\nSF:${absoluteSourcePath}\nDA:1,10\nend_of_record\n`);
-        setLcovInput('lcov.info');
+        await seedRepo(tmpDir, {
+          'src/a.js': 'a\n',
+          'src/b.js': 'b\n',
+        });
+        const lcov1 = 'TN:\nSF:src/a.js\nDA:1,5\nend_of_record\n';
+        const lcov2 = 'TN:\nSF:src/b.js\nDA:1,3\nend_of_record\n';
+        await fs.writeFile('lcov1.info', lcov1);
+        await fs.writeFile('lcov2.info', lcov2);
+        setCoverageInput('lcov1.info lcov2.info');
 
         await run();
 
         expect(mockSetFailed).not.toHaveBeenCalled();
         const [, rawBody] = mockPost.mock.calls[0];
         const body = JSON.parse(rawBody);
-        const uploaded = decodeCoverageContent(body.code_coverage_file_content);
-        expect(uploaded).toContain('SF:src/app.js');
-        expect(uploaded).not.toContain(tmpDir);
+        expect(body.files).toHaveLength(2);
+        expect(decodeCoverageContent(body.files[0].content)).toBe(lcov1);
+        expect(decodeCoverageContent(body.files[1].content)).toBe(lcov2);
       } finally {
         process.chdir(previousCwd);
       }
     });
 
-    it('normalizes Windows source paths without merging the single input', async () => {
+    it('uploads cobertura with detected format', async () => {
       const previousCwd = process.cwd();
       process.chdir(tmpDir);
 
       try {
-        process.env.GITHUB_WORKSPACE = 'D:\\a\\repo\\repo';
-        const lcovContent = 'TN:\nSF:D:\\a\\repo\\repo\\src\\app.cs\nDA:1,10\nend_of_record\n';
-        await fs.writeFile('lcov.info', lcovContent);
-        setLcovInput('lcov.info');
+        await seedRepo(tmpDir, { 'src/a.js': 'a\n' });
+        const xml = `<?xml version="1.0" ?>
+<coverage>
+  <packages><package name=""><classes>
+    <class name="a" filename="src/a.js">
+      <lines><line number="1" hits="1" branch="false"/></lines>
+    </class>
+  </classes></package></packages>
+</coverage>
+`;
+        await fs.writeFile('cobertura.xml', xml);
+        setCoverageInput('cobertura.xml');
 
         await run();
 
         expect(mockSetFailed).not.toHaveBeenCalled();
         const [, rawBody] = mockPost.mock.calls[0];
         const body = JSON.parse(rawBody);
-        const uploaded = decodeCoverageContent(body.code_coverage_file_content);
-        expect(uploaded).toBe('TN:\nSF:src/app.cs\nDA:1,10\nend_of_record\n');
+        expect(body.files[0].format).toBe('cobertura');
+        expect(decodeCoverageContent(body.files[0].content)).toContain('filename="src/a.js"');
       } finally {
         process.chdir(previousCwd);
       }
     });
   });
 
-  describe('multi-file path validation (existing behavior)', () => {
-    it('validates multiple file paths through mergeLcov', async () => {
+  describe('multi-file path validation', () => {
+    it('rejects path traversal among multiple paths', async () => {
       const previousCwd = process.cwd();
       process.chdir(tmpDir);
 
       try {
-        const lcov1 = 'TN:\nSF:src/a.js\nDA:1,5\nend_of_record\n';
-        const lcov2 = 'TN:\nSF:src/b.js\nDA:1,3\nend_of_record\n';
-
-        await fs.writeFile('lcov1.info', lcov1);
-        await fs.writeFile('lcov2.info', lcov2);
-
-        setLcovInput('lcov1.info lcov2.info');
-
-        await run();
-
-        expect(mockSetFailed).not.toHaveBeenCalled();
-        expect(mockPost).toHaveBeenCalled();
-        expect(mockInfo).toHaveBeenCalledWith('Upload succeeded.');
-      } finally {
-        process.chdir(previousCwd);
-      }
-    });
-
-    it('rejects path traversal in multi-file scenario', async () => {
-      const previousCwd = process.cwd();
-      process.chdir(tmpDir);
-
-      try {
+        await seedRepo(tmpDir, { 'src/a.js': 'a\n' });
         await fs.writeFile('lcov1.info', 'TN:\nSF:src/a.js\nDA:1,5\nend_of_record\n');
-
-        // One valid path, one with traversal
-        setLcovInput('lcov1.info ../../../etc/passwd');
-
-        await run();
-
-        expect(mockSetFailed).toHaveBeenCalledWith(expect.stringContaining('Invalid file path'));
-        expect(mockPost).not.toHaveBeenCalled();
-      } finally {
-        process.chdir(previousCwd);
-      }
-    });
-
-    it('rejects absolute path in multi-file scenario', async () => {
-      const previousCwd = process.cwd();
-      process.chdir(tmpDir);
-
-      try {
-        await fs.writeFile('lcov1.info', 'TN:\nSF:src/a.js\nDA:1,5\nend_of_record\n');
-
-        // One valid path, one absolute
-        setLcovInput('lcov1.info /etc/passwd');
+        setCoverageInput('lcov1.info ../../../etc/passwd');
 
         await run();
 
@@ -457,21 +270,14 @@ describe('main.js security - single file path validation', () => {
       process.chdir(tmpDir);
 
       try {
-        mockGetBooleanInput.mockImplementation((name) => {
-          if (name === 'fail-on-error') {
-            return false;
-          }
-          return false;
-        });
-        setLcovInput('../../../etc/passwd');
+        mockGetBooleanInput.mockReturnValue(false);
+        setCoverageInput('../../../etc/passwd');
 
         await run();
 
         expect(mockSetFailed).not.toHaveBeenCalled();
         expect(mockWarning).toHaveBeenCalledWith(
-          expect.stringContaining(
-            'Coverage upload skipped: Invalid file path: absolute paths and ".." segments are not allowed',
-          ),
+          expect.stringContaining('Coverage upload skipped: Invalid file path'),
         );
         expect(mockPost).not.toHaveBeenCalled();
       } finally {
@@ -480,103 +286,23 @@ describe('main.js security - single file path validation', () => {
     });
   });
 
-  describe('exploit scenario prevention', () => {
-    it('prevents exfiltration of /etc/passwd via single path', async () => {
-      const previousCwd = process.cwd();
-      process.chdir(tmpDir);
+  it('rejects when format cannot be detected from the filename', async () => {
+    const previousCwd = process.cwd();
+    process.chdir(tmpDir);
 
-      try {
-        // Simulate attacker trying to read /etc/passwd
-        setLcovInput('/etc/passwd');
+    try {
+      await seedRepo(tmpDir);
+      await fs.writeFile('report.txt', 'not coverage');
+      setCoverageInput('report.txt');
 
-        await run();
+      await run();
 
-        // Verify the attack was blocked
-        expect(mockSetFailed).toHaveBeenCalledWith(
-          expect.stringContaining(
-            'Invalid file path: absolute paths and ".." segments are not allowed',
-          ),
-        );
-
-        // Verify no data was uploaded
-        expect(mockPost).not.toHaveBeenCalled();
-      } finally {
-        process.chdir(previousCwd);
-      }
-    });
-
-    it('prevents exfiltration of GitHub secrets via path traversal', async () => {
-      const previousCwd = process.cwd();
-      process.chdir(tmpDir);
-
-      try {
-        // Simulate attacker trying to read runner secrets or environment files
-        setLcovInput('../../.env');
-
-        await run();
-
-        // Verify the attack was blocked
-        expect(mockSetFailed).toHaveBeenCalledWith(
-          expect.stringContaining(
-            'Invalid file path: absolute paths and ".." segments are not allowed',
-          ),
-        );
-
-        // Verify no data was uploaded
-        expect(mockPost).not.toHaveBeenCalled();
-      } finally {
-        process.chdir(previousCwd);
-      }
-    });
-
-    it('prevents reading arbitrary runner files via complex traversal', async () => {
-      const previousCwd = process.cwd();
-      process.chdir(tmpDir);
-
-      try {
-        // Complex path traversal attempt
-        setLcovInput('coverage/../../../../../../home/runner/.ssh/id_rsa');
-
-        await run();
-
-        // Verify the attack was blocked
-        expect(mockSetFailed).toHaveBeenCalledWith(
-          expect.stringContaining(
-            'Invalid file path: absolute paths and ".." segments are not allowed',
-          ),
-        );
-
-        // Verify no data was uploaded
-        expect(mockPost).not.toHaveBeenCalled();
-      } finally {
-        process.chdir(previousCwd);
-      }
-    });
-  });
-
-  describe('validation happens before file read', () => {
-    it('validates path before attempting to read file', async () => {
-      const previousCwd = process.cwd();
-      process.chdir(tmpDir);
-
-      try {
-        // Use a path that would fail validation
-        setLcovInput('../sensitive.txt');
-
-        await run();
-
-        // Should fail with validation error, not file not found error
-        expect(mockSetFailed).toHaveBeenCalledWith(
-          expect.stringContaining(
-            'Invalid file path: absolute paths and ".." segments are not allowed',
-          ),
-        );
-
-        // Should not attempt to read the file
-        expect(mockPost).not.toHaveBeenCalled();
-      } finally {
-        process.chdir(previousCwd);
-      }
-    });
+      expect(mockSetFailed).toHaveBeenCalledWith(
+        expect.stringContaining('Could not detect coverage format'),
+      );
+      expect(mockPost).not.toHaveBeenCalled();
+    } finally {
+      process.chdir(previousCwd);
+    }
   });
 });

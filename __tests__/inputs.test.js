@@ -13,7 +13,7 @@ const { readInputs } = await import('../src/inputs.js');
 describe('readInputs', () => {
   beforeEach(() => {
     mockGetInput.mockImplementation((name) => {
-      if (name === 'lcov-file-paths') {
+      if (name === 'file-paths') {
         return 'coverage/lcov.info';
       }
       if (name === 'region') {
@@ -26,11 +26,11 @@ describe('readInputs', () => {
 
   it('reads action inputs', () => {
     expect(readInputs()).toEqual({
-      lcovFilePaths: ['coverage/lcov.info'],
+      filePaths: ['coverage/lcov.info'],
       failOnError: true,
       region: 'eu',
     });
-    expect(mockGetInput).toHaveBeenCalledWith('lcov-file-paths', {
+    expect(mockGetInput).toHaveBeenCalledWith('file-paths', {
       required: true,
       trimWhitespace: true,
     });
@@ -43,7 +43,7 @@ describe('readInputs', () => {
 
   it('reads an explicit region', () => {
     mockGetInput.mockImplementation((name) => {
-      if (name === 'lcov-file-paths') {
+      if (name === 'file-paths') {
         return 'coverage/lcov.info';
       }
       if (name === 'region') {
@@ -59,15 +59,15 @@ describe('readInputs', () => {
     ['newlines', 'packages/a/coverage/lcov.info\npackages/b/coverage/lcov.info'],
     ['commas', 'packages/a/coverage/lcov.info,packages/b/coverage/lcov.info'],
     ['spaces', 'packages/a/coverage/lcov.info packages/b/coverage/lcov.info'],
-  ])('splits lcov paths on %s', (_label, input) => {
+  ])('splits file paths on %s', (_label, input) => {
     mockGetInput.mockImplementation((name) => {
-      if (name === 'lcov-file-paths') {
+      if (name === 'file-paths') {
         return input;
       }
       return '';
     });
 
-    expect(readInputs().lcovFilePaths).toEqual([
+    expect(readInputs().filePaths).toEqual([
       'packages/a/coverage/lcov.info',
       'packages/b/coverage/lcov.info',
     ]);

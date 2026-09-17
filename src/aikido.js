@@ -69,9 +69,9 @@ export async function getAuthHeaders(region = '') {
 }
 
 /**
- * Upload a coverage payload to Aikido.
+ * Upload coverage files + repository_source_paths + EOF metadata to Aikido.
  */
-export async function uploadCoverage(codeCoverageFileContent, region = '') {
+export async function uploadCoverage(payload, region = '') {
   const authHeaders = await getAuthHeaders(region);
   const client = new HttpClient('aikido-code-coverage');
 
@@ -79,7 +79,13 @@ export async function uploadCoverage(codeCoverageFileContent, region = '') {
     repo_name: process.env.GITHUB_REPOSITORY,
     commit_sha: process.env.GITHUB_SHA,
     branch_name: process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME,
-    code_coverage_file_content: gzipSync(codeCoverageFileContent).toString('base64'),
+    repository_source_paths: payload.repository_source_paths,
+    eof: payload.eof,
+    files: payload.files.map((file) => ({
+      filename: file.filename,
+      format: file.format,
+      content: gzipSync(file.content).toString('base64'),
+    })),
   };
 
   const baseUrl = getBaseUrl(region);

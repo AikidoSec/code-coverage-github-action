@@ -48,11 +48,15 @@ jobs:
 
       - run: npm ci
       - run: npm test
+      # Jest writes cobertura-coverage.xml; rename for the action dogfood step.
+      - run: cp coverage/cobertura-coverage.xml coverage/cobertura.xml
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage
-          path: coverage/lcov.info
+          path: |
+            coverage/lcov.info
+            coverage/cobertura.xml
           if-no-files-found: error
 
   test-integration:
@@ -112,9 +116,12 @@ jobs:
           name: dist
           path: dist/
 
-      - name: Test Aikido Upload Code Coverage action in workflow with OIDC
+      - name: Test Aikido Upload Code Coverage action in workflow with LCOV format
         uses: ./
         with:
-          lcov-file-paths: coverage/lcov.info
+          file-paths: |
+            coverage/lcov.info
+            coverage/cobertura.xml
         env:
           ACTIONS_STEP_DEBUG: 'true'
+          DEVELOPMENT: 'true'
