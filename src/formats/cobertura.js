@@ -8,7 +8,7 @@ const ARRAY_TAGS = new Set(['source', 'package', 'class', 'method', 'line', 'con
 const XML_OPTIONS = {
   ignoreAttributes: false,
   attributeNamePrefix: '@_',
-  allowBooleanAttributes: true,
+  allowBooleanAttributes: false,
 };
 
 const parser = new XMLParser({
@@ -51,6 +51,8 @@ function serializeCoberturaDocument(document) {
     ...XML_OPTIONS,
     format: true,
     suppressEmptyNode: true,
+    // Default true turns branch="true" into bare `branch` (invalid for Cobertura/libxml).
+    suppressBooleanAttributes: false,
   }).build(document);
 
   return xml.startsWith('<?xml') ? xml : `<?xml version="1.0" ?>\n${xml}`;

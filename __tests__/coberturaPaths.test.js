@@ -77,6 +77,34 @@ describe('normalizeCoberturaSourcePaths', () => {
     expect(normalized).toContain('filename="src/a.js"');
   });
 
+
+  it('keeps branch="true" as a quoted attribute after normalize', () => {
+    const xml = `<?xml version="1.0" ?>
+<coverage line-rate="1" branch-rate="1">
+  <sources>
+    <source>/repo</source>
+  </sources>
+  <packages>
+    <package name="">
+      <classes>
+        <class name="a" filename="/repo/src/a.js" line-rate="1" branch-rate="1">
+          <lines>
+            <line number="1" hits="1" branch="false"/>
+            <line number="2" hits="1" branch="true" condition-coverage="100% (2/2)"/>
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>
+`;
+
+    const normalized = normalizeCoberturaSourcePaths(xml, '/repo');
+    expect(normalized).toContain('branch="true"');
+    expect(normalized).not.toMatch(/\sbranch[\s/>]/);
+    expect(normalized).toContain('branch="false"');
+  });
+
   it('throws for reports without a coverage root', () => {
     expect(() => normalizeCoberturaSourcePaths('<not-coverage/>', '/repo')).toThrow(
       /missing <coverage>/,
