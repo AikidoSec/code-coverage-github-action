@@ -57,7 +57,7 @@ jobs:
           path: coverage
 
       - name: Upload coverage to Aikido
-        uses: AikidoSec/code-coverage-github-action@v1.1.0
+        uses: AikidoSec/code-coverage-github-action@v2.0.0
         with:
           file-paths: coverage/lcov.info
 ```
@@ -66,7 +66,7 @@ jobs:
 
 ```yaml
 - name: Upload coverage to Aikido
-  uses: AikidoSec/code-coverage-github-action@v1.1.0
+  uses: AikidoSec/code-coverage-github-action@v2.0.0
   with:
     file-paths: coverage/cobertura.xml
 ```
@@ -78,7 +78,7 @@ Mixed LCOV and Cobertura inputs are supported; the backend merges them.
 
 ```yaml
 - name: Upload coverage to Aikido
-  uses: AikidoSec/code-coverage-github-action@v1.1.0
+  uses: AikidoSec/code-coverage-github-action@v2.0.0
   with:
     file-paths: |
       packages/a/coverage/lcov.info
@@ -140,7 +140,7 @@ jobs:
           merge-multiple: true
 
       - name: Upload coverage to Aikido
-        uses: AikidoSec/code-coverage-github-action@v1.1.0
+        uses: AikidoSec/code-coverage-github-action@v2.0.0
         with:
           file-paths: |
             coverage-reports/packages/a/coverage/lcov.info
@@ -170,7 +170,7 @@ token audience.
 
 ```yaml
 - name: Upload coverage to Aikido
-  uses: AikidoSec/code-coverage-github-action@v1.1.0
+  uses: AikidoSec/code-coverage-github-action@v2.0.0
   with:
     file-paths: coverage/lcov.info
     region: us
@@ -215,7 +215,7 @@ jobs:
           path: coverage
 
       - name: Upload coverage to Aikido
-        uses: AikidoSec/code-coverage-github-action@v1.1.0
+        uses: AikidoSec/code-coverage-github-action@v2.0.0
         with:
           file-paths: coverage/lcov.info
 ```
