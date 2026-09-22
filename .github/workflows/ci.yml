@@ -124,4 +124,3 @@ jobs:
             coverage/cobertura.xml
         env:
           ACTIONS_STEP_DEBUG: 'true'
-          DEVELOPMENT: 'true'
