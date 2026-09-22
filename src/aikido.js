@@ -78,7 +78,7 @@ export async function uploadCoverage(payload, region = '', aikidoToken = '') {
   const authHeaders = await getAuthHeaders(region, aikidoToken);
   const client = new HttpClient('aikido-code-coverage');
 
-  const body = {
+  let body = {
     repo_name: process.env.GITHUB_REPOSITORY,
     commit_sha: process.env.GITHUB_SHA,
     branch_name: process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME,
@@ -90,6 +90,13 @@ export async function uploadCoverage(payload, region = '', aikidoToken = '') {
       content: gzipSync(file.content).toString('base64'),
     })),
   };
+
+  if (aikidoToken) {
+    body = {
+      ...body,
+      repository_id: process.env.GITHUB_REPOSITORY_ID,
+    };
+  }
 
   const baseUrl = getBaseUrl(region);
   const url = `${baseUrl}/api/integrations/continuous_integration/scan/code_coverage`;
