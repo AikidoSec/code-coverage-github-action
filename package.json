@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "GitHub Action that collects an LCOV code coverage report and uploads it to Aikido.",
+  "description": "GitHub Action that collects LCOV/Cobertura coverage reports and uploads them to Aikido with repository_source_paths and EOF metadata.",
   "main": "dist/index.js",
   "scripts": {
     "build": "ncc build src/main.js -o dist --minify --source-map --license licenses.txt",
@@ -24,16 +24,17 @@
     "aikido",
     "code-coverage",
     "lcov",
+    "cobertura",
     "security"
   ],
   "license": "MIT",
   "overrides": {
-    "undici@<=7.29.0": "7.29.0"
+    "undici@<=8.10.2": "8.10.2"
   },
   "dependencies": {
     "@actions/core": "3.0.1",
     "@actions/http-client": "4.0.1",
-    "ignore": "^7.0.8"
+    "ignore": "7.0.8"
   },
   "devDependencies": {
     "@github/local-action": "7.0.1",

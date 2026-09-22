@@ -55,22 +55,20 @@ The `.env` file has two groups of variables.
 
 GitHub Actions inputs are exposed as environment variables with an `INPUT_` prefix. Use the input name from `action.yml` in uppercase. **Keep hyphens — do not replace them with underscores.**
 
-| Variable                | Required | Description                                        |
-| ----------------------- | -------- | -------------------------------------------------- |
-| `INPUT_LCOV-FILE-PATHS` | yes      | Path(s) to LCOV file(s), e.g. `coverage/lcov.info` |
-| `INPUT_REGION`          | no       | `eu` (default), `us`, `au`, or `us-gov`            |
-| `INPUT_FAIL-ON-ERROR`   | no       | Defaults to `true`                                 |
+| Variable              | Required | Description                                             |
+| --------------------- | -------- | ------------------------------------------------------- |
+| `INPUT_FILE-PATHS`    | yes      | Path(s) to coverage file(s), e.g. `coverage/lcov.info`. |
+| `INPUT_REGION`        | no       | `eu` (default), `us`, `au`, or `us-gov`                 |
+| `INPUT_FAIL-ON-ERROR` | no       | Defaults to `true`                                      |
 
 The published action authenticates with GitHub OIDC (`core.getIDToken`). That only works
 inside GitHub Actions when the job has `permissions: id-token: write`. Local `npm run local`
-runs can still exercise file discovery and merge, but the upload step will fail without a
-real OIDC token.
 
-For multiple LCOV files, separate paths with newlines, spaces, or commas (same parsing as in CI):
+For multiple coverage files, separate paths with newlines, spaces, or commas (same parsing as in CI). Mixed LCOV and Cobertura paths are fine:
 
 ```dotenv
-INPUT_LCOV-FILE-PATHS=packages/a/coverage/lcov.info
-packages/b/coverage/lcov.info
+INPUT_FILE-PATHS=packages/a/coverage/lcov.info
+packages/b/coverage/cobertura.xml
 ```
 
 #### GitHub context
@@ -83,9 +81,10 @@ In CI, GitHub sets repository metadata automatically. Locally, set these in `.en
 | `GITHUB_SHA`        | `abc123def456...` (any valid commit SHA) |
 | `GITHUB_REF_NAME`   | `main`                                   |
 
-### 3. Provide an LCOV file
+### 3. Provide a coverage file
 
-Point `INPUT_LCOV-FILE-PATHS` at an existing LCOV report. To generate one in this repo:
+Point `INPUT_FILE-PATHS` at an existing report. Use a filename the action can detect
+(`lcov.info`, `*.lcov`, or `*cobertura*.xml` / `*.xml`). To generate an LCOV file in this repo:
 
 ```bash
 npm test
@@ -147,19 +146,25 @@ Publishing to GitHub Marketplace is a manual step in the GitHub UI. The release 
 ## Project layout
 
 ```
-action.yml          Action metadata and inputs
+action.yml              Action metadata and inputs
 src/
-  main.js           Entry point (used for local runs)
-  inputs.js         Reads action inputs via @actions/core
-  mergeLcov.js      Merges multiple LCOV files
-  aikido.js         Uploads coverage to the Aikido API
+  main.js               Entry point (used for local runs)
+  inputs.js             Reads action inputs via @actions/core
+  collectUploadPayload.js  Builds repository_source_paths + EOF + file list for upload
+  reportPaths.js        Format detection / covered-path extraction
+  projectFiles.js       Repository walk → repository_source_paths
+  sourceLineFixes.js    EOF line counts from source files
+  aikido.js             Uploads coverage payload to the Aikido API
+php/                    Portable PHP merge/parse extract for the backend
 dist/
-  index.js          Bundled output (used in CI workflows)
-__tests__/          Jest unit tests
-.env.example        Template for local testing
+  index.js              Bundled output (used in CI workflows)
+__tests__/              Jest unit tests
+.env.example            Template for local testing
 ```
 
 Local runs execute `src/main.js` directly. Published workflows use the bundled `dist/index.js` built by `npm run build`.
+
+See [`php/README.md`](./php/README.md) for the backend processor extract.
 
 ## Authentication
 
