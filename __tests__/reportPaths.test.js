@@ -14,7 +14,9 @@ describe('reportPaths', () => {
     });
 
     it('throws when format cannot be detected', () => {
-      expect(() => detectFormatFromFilename('report.txt')).toThrow(/Could not detect coverage format/);
+      expect(() => detectFormatFromFilename('report.txt')).toThrow(
+        /Could not detect coverage format/,
+      );
     });
   });
 
