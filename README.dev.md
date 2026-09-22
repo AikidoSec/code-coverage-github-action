@@ -60,9 +60,11 @@ GitHub Actions inputs are exposed as environment variables with an `INPUT_` pref
 | `INPUT_FILE-PATHS`    | yes      | Path(s) to coverage file(s), e.g. `coverage/lcov.info`. |
 | `INPUT_REGION`        | no       | `eu` (default), `us`, `au`, or `us-gov`                 |
 | `INPUT_FAIL-ON-ERROR` | no       | Defaults to `true`                                      |
+| `INPUT_AIKIDO-TOKEN`  | no       | Static CI Aikido token (preferred for local runs)       |
 
-The published action authenticates with GitHub OIDC (`core.getIDToken`). That only works
-inside GitHub Actions when the job has `permissions: id-token: write`. Local `npm run local`
+In CI, authentication defaults to GitHub OIDC (`core.getIDToken`) when the job has
+`permissions: id-token: write`. Locally, OIDC is unavailable — set `INPUT_AIKIDO-TOKEN`
+instead so `npm run local` can authenticate.
 
 For multiple coverage files, separate paths with newlines, spaces, or commas (same parsing as in CI). Mixed LCOV and Cobertura paths are fine:
 
@@ -168,6 +170,8 @@ See [`php/README.md`](./php/README.md) for the backend processor extract.
 
 ## Authentication
 
-The action always uses GitHub OIDC. There is no CI API token input. In a workflow, grant
-`id-token: write` (and `contents: read` if the job checks out the repo) on the job that
-runs the action. See [README.md](./README.md#authentication).
+In CI, prefer GitHub OIDC: grant `id-token: write` (and `contents: read` if the job
+checks out the repo). For local runs — or when OIDC is not an option — set
+`INPUT_AIKIDO-TOKEN` / `aikido-token`. Do not configure both; the action logs an error
+if `aikido-token` is set while OIDC env vars are present. See
+[README.md](./README.md#authentication).

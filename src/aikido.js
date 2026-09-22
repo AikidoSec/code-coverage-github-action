@@ -51,9 +51,12 @@ function formatRequestError(statusCode, result, rawBody) {
 /**
  * Resolve request authentication headers for secret-key or OIDC mode.
  */
-export async function getAuthHeaders(region = '') {
-  const oidcAudience = getBaseUrl(region);
+export async function getAuthHeaders(region = '', aikidoToken = '') {
+  if (aikidoToken) {
+    return { Authorization: `Bearer ${aikidoToken}` };
+  }
 
+  const oidcAudience = getBaseUrl(region);
   try {
     const oidcToken = await core.getIDToken(oidcAudience);
     core.setSecret(oidcToken);
@@ -71,8 +74,8 @@ export async function getAuthHeaders(region = '') {
 /**
  * Upload coverage files + repository_source_paths + EOF metadata to Aikido.
  */
-export async function uploadCoverage(payload, region = '') {
-  const authHeaders = await getAuthHeaders(region);
+export async function uploadCoverage(payload, region = '', aikidoToken = '') {
+  const authHeaders = await getAuthHeaders(region, aikidoToken);
   const client = new HttpClient('aikido-code-coverage');
 
   const body = {

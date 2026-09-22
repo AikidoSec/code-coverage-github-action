@@ -2,16 +2,25 @@ import { jest } from '@jest/globals';
 
 const mockGetInput = jest.fn();
 const mockGetBooleanInput = jest.fn();
+const mockError = jest.fn();
 
 jest.unstable_mockModule('@actions/core', () => ({
   getInput: mockGetInput,
   getBooleanInput: mockGetBooleanInput,
+  error: mockError,
 }));
 
 const { readInputs } = await import('../src/inputs.js');
 
+const OIDC_URL = 'ACTIONS_ID_TOKEN_REQUEST_URL';
+const OIDC_TOKEN = 'ACTIONS_ID_TOKEN_REQUEST_TOKEN';
+
 describe('readInputs', () => {
   beforeEach(() => {
+    delete process.env[OIDC_URL];
+    delete process.env[OIDC_TOKEN];
+    mockError.mockClear();
+
     mockGetInput.mockImplementation((name) => {
       if (name === 'file-paths') {
         return 'coverage/lcov.info';
@@ -29,6 +38,7 @@ describe('readInputs', () => {
       filePaths: ['coverage/lcov.info'],
       failOnError: true,
       region: 'eu',
+      aikidoToken: '',
     });
     expect(mockGetInput).toHaveBeenCalledWith('file-paths', {
       required: true,
@@ -38,7 +48,12 @@ describe('readInputs', () => {
       required: false,
       trimWhitespace: true,
     });
+    expect(mockGetInput).toHaveBeenCalledWith('aikido-token', {
+      required: false,
+      trimWhitespace: true,
+    });
     expect(mockGetBooleanInput).toHaveBeenCalledWith('fail-on-error');
+    expect(mockError).not.toHaveBeenCalled();
   });
 
   it('reads an explicit region', () => {
@@ -53,6 +68,51 @@ describe('readInputs', () => {
     });
 
     expect(readInputs().region).toBe('us');
+  });
+
+  it('reads aikido-token when provided', () => {
+    mockGetInput.mockImplementation((name) => {
+      if (name === 'file-paths') {
+        return 'coverage/lcov.info';
+      }
+      if (name === 'aikido-token') {
+        return 'static-ci-token';
+      }
+      return '';
+    });
+
+    expect(readInputs().aikidoToken).toBe('static-ci-token');
+    expect(mockError).not.toHaveBeenCalled();
+  });
+
+  it('errors when both aikido-token and OIDC are configured', () => {
+    process.env[OIDC_URL] = 'https://example.actions.githubusercontent.com';
+    process.env[OIDC_TOKEN] = 'request-token';
+
+    mockGetInput.mockImplementation((name) => {
+      if (name === 'file-paths') {
+        return 'coverage/lcov.info';
+      }
+      if (name === 'aikido-token') {
+        return 'static-ci-token';
+      }
+      return '';
+    });
+
+    expect(readInputs().aikidoToken).toBe('static-ci-token');
+    expect(mockError).toHaveBeenCalledWith(
+      'Both aikido-token and OIDC (id-token: write) are configured. ' +
+        'If you intend to use secret-key auth only, remove id-token: write from the job and use the aikido-token input instead.',
+    );
+  });
+
+  it('does not error when only OIDC env vars are present', () => {
+    process.env[OIDC_URL] = 'https://example.actions.githubusercontent.com';
+    process.env[OIDC_TOKEN] = 'request-token';
+
+    readInputs();
+
+    expect(mockError).not.toHaveBeenCalled();
   });
 
   it.each([

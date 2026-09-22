@@ -24,7 +24,7 @@ async function run() {
     core.info(
       `Uploading ${payload.files.length} coverage file(s) (repository_source_paths=${payload.repository_source_paths.length}, eof=${Object.keys(payload.eof).length}) for branch ${process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME} to Aikido...`,
     );
-    await uploadCoverage(payload, inputs.region);
+    await uploadCoverage(payload, inputs.region, inputs.aikidoToken);
 
     core.info(`Upload succeeded.`);
   } catch (error) {

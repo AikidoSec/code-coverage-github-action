@@ -104,6 +104,14 @@ describe('getAuthHeaders', () => {
     await expect(getAuthHeaders('mars')).rejects.toThrow('Unknown region "mars"');
     expect(mockGetIDToken).not.toHaveBeenCalled();
   });
+
+  it('uses aikido-token and skips OIDC when provided', async () => {
+    await expect(getAuthHeaders('eu', 'static-ci-token')).resolves.toEqual({
+      Authorization: 'Bearer static-ci-token',
+    });
+    expect(mockGetIDToken).not.toHaveBeenCalled();
+    expect(mockSetSecret).not.toHaveBeenCalled();
+  });
 });
 
 describe('uploadCoverage', () => {
@@ -147,6 +155,25 @@ describe('uploadCoverage', () => {
     expect(body.format).toBeUndefined();
     expect(headers).toEqual({
       Authorization: 'Bearer oidc-jwt',
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    });
+  });
+
+  it('posts with aikido-token and does not request an OIDC token', async () => {
+    const payload = samplePayload();
+    const result = await uploadCoverage(payload, 'eu', 'static-ci-token');
+
+    expect(result).toEqual({ success: true });
+    expect(mockGetIDToken).not.toHaveBeenCalled();
+    expect(mockSetSecret).not.toHaveBeenCalled();
+
+    const [url, , headers] = mockPost.mock.calls[0];
+    expect(url).toBe(
+      'https://bg.aikido.dev/api/integrations/continuous_integration/scan/code_coverage',
+    );
+    expect(headers).toEqual({
+      Authorization: 'Bearer static-ci-token',
       'Content-Type': 'application/json',
       Accept: 'application/json',
     });

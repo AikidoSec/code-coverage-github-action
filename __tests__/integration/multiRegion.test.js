@@ -7,6 +7,7 @@ import { gunzipSync } from 'node:zlib';
 const mockInfo = jest.fn();
 const mockSetFailed = jest.fn();
 const mockWarning = jest.fn();
+const mockError = jest.fn();
 const mockGetInput = jest.fn();
 const mockGetBooleanInput = jest.fn();
 const mockPost = jest.fn();
@@ -23,6 +24,7 @@ jest.unstable_mockModule('@actions/core', () => ({
   info: mockInfo,
   setFailed: mockSetFailed,
   warning: mockWarning,
+  error: mockError,
   getInput: mockGetInput,
   getBooleanInput: mockGetBooleanInput,
   getIDToken: mockGetIDToken,
@@ -65,9 +67,13 @@ describe('e2e multi-region OIDC and upload URLs', () => {
     process.env.GITHUB_WORKSPACE = tmpDir;
     delete process.env.DEVELOPMENT;
 
+    delete process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
+    delete process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+
     mockInfo.mockClear();
     mockSetFailed.mockClear();
     mockWarning.mockClear();
+    mockError.mockClear();
     mockGetInput.mockClear();
     mockGetBooleanInput.mockClear();
     mockPost.mockClear();

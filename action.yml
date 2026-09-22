@@ -17,6 +17,9 @@ inputs:
     description: 'Fail the action if discovery or upload fails. Set to false to warn instead.'
     required: false
     default: 'true'
+  aikido-token:
+    description: 'Static CI Aikido token for authentication. When provided, OIDC authentication cannot be used and needs to be removed from the yaml file.'
+    required: false
 
 runs:
   using: 'node24'

@@ -7,8 +7,9 @@ The action reads one or more reports from the paths you provide and uploads them
 - a **`repository_source_paths`** list (filtered repo source paths) for path matching on the backend
 - an **EOF** map (line counts for covered source files) so the backend can drop coverage past end-of-file
 
-Authentication uses GitHub OIDC (keyless). The job that runs this action must grant
-`id-token: write`. No API token or repository secret is required.
+Authentication defaults to GitHub OIDC (keyless): the job that runs this action must
+grant `id-token: write`. Alternatively, pass a static CI token via `aikido-token`
+(and omit `id-token: write`). Do not configure both.
 
 ## Usage
 
@@ -162,6 +163,7 @@ the matrix test jobs.
 | `file-paths`    | yes      | —       | Path(s) to coverage report(s). Newline-, space-, or comma-separated. Format detected from filename. |
 | `region`        | no       | `eu`    | Aikido region for upload and OIDC audience: `eu`, `us`, `au`, or `us-gov`.                          |
 | `fail-on-error` | no       | `true`  | Fail the action if reading or upload fails. Set to `false` to emit a warning instead.               |
+| `aikido-token`  | no       | —       | Static CI Aikido token. When set, OIDC is not used — remove `id-token: write` from the job.         |
 
 ### Region
 
@@ -178,9 +180,14 @@ token audience.
 
 ## Authentication
 
-The action authenticates with GitHub OIDC. The workflow job must grant `id-token: write`
-so GitHub can mint a JWT for Aikido. Setting any `permissions` key resets the rest to
-none, so also grant `contents: read` if the job checks out the repository.
+Choose **one** of the following. Configuring both `aikido-token` and `id-token: write`
+is not supported — the action logs an error and prefers the static token.
+
+### GitHub OIDC (default)
+
+Grant `id-token: write` so GitHub can mint a JWT for Aikido. Setting any `permissions`
+key resets the rest to none, so also grant `contents: read` if the job checks out the
+repository. No API token or repository secret is required.
 
 ```yaml
 on: push
@@ -204,7 +211,7 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
-      id-token: write # required for upload
+      id-token: write # required for OIDC upload
       contents: read # required for upload
     steps:
       - uses: actions/checkout@v4
@@ -218,4 +225,31 @@ jobs:
         uses: AikidoSec/code-coverage-github-action@v1.1.0
         with:
           file-paths: coverage/lcov.info
+```
+
+### Static CI token
+
+Pass an Aikido CI token via `aikido-token` (typically from a repository secret). Do **not**
+grant `id-token: write` on that job.
+
+```yaml
+  upload-coverage:
+    needs: test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage
+          path: coverage
+
+      - name: Upload coverage to Aikido
+        uses: AikidoSec/code-coverage-github-action@v1.1.0
+        with:
+          file-paths: coverage/lcov.info
+          aikido-token: ${{ secrets.AIKIDO_TOKEN }}
 ```
