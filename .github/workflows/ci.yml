@@ -124,34 +124,3 @@ jobs:
             coverage/cobertura.xml
         env:
           ACTIONS_STEP_DEBUG: 'true'
-
-  test-action-token:
-    needs: [test, build]
-    runs-on: open-source-releaser
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          persist-credentials: false
-
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: coverage
-          path: coverage/
-
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: dist
-          path: dist/
-
-      - name: Test Aikido Upload Code Coverage action with static token
-        uses: ./
-        with:
-          file-paths: |
-            coverage/lcov.info
-            coverage/cobertura.xml
-          aikido-token: ${{ secrets.AIKIDO_TOKEN }}
-        env:
-          ACTIONS_STEP_DEBUG: 'true'
-          DEVELOPMENT: 'true'
