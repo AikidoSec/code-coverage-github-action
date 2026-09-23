@@ -27,10 +27,11 @@ export function readInputs() {
   );
 
   if (aikidoToken && oidcEnabled) {
-    core.error(
+    core.setFailed(
       'Both aikido-token and OIDC (id-token: write) are configured. ' +
-        'If you intend to use secret-key auth only, remove id-token: write from the job and use the aikido-token input instead.',
+        'Remove one authentication method before continuing.',
     );
+    return;
   }
 
   return {
