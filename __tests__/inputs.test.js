@@ -99,10 +99,8 @@ describe('readInputs', () => {
       return '';
     });
 
-    expect(readInputs().aikidoToken).toBe('static-ci-token');
-    expect(mockError).toHaveBeenCalledWith(
-      'Both aikido-token and OIDC (id-token: write) are configured. ' +
-        'If you intend to use secret-key auth only, remove id-token: write from the job and use the aikido-token input instead.',
+    expect(() => readInputs()).toThrow(
+      'Both aikido-token and OIDC (id-token: write) are configured. Remove one authentication method before continuing.',
     );
   });
 

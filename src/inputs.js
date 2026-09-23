@@ -27,11 +27,10 @@ export function readInputs() {
   );
 
   if (aikidoToken && oidcEnabled) {
-    core.setFailed(
+    throw new Error(
       'Both aikido-token and OIDC (id-token: write) are configured. ' +
         'Remove one authentication method before continuing.',
     );
-    return;
   }
 
   return {

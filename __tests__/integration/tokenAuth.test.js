@@ -156,7 +156,7 @@ describe('e2e static token auth', () => {
     }
   });
 
-  it('logs an error when both aikido-token and OIDC are configured, still using the token', async () => {
+  it('fails when both aikido-token and OIDC are configured', async () => {
     const previousCwd = process.cwd();
     process.chdir(tmpDir);
 
@@ -169,15 +169,13 @@ describe('e2e static token auth', () => {
 
       await run();
 
-      expect(mockSetFailed).not.toHaveBeenCalled();
-      expect(mockError).toHaveBeenCalledWith(
-        expect.stringContaining('Both aikido-token and OIDC (id-token: write) are configured'),
+      expect(mockSetFailed).toHaveBeenCalledWith(
+        'Both aikido-token and OIDC (id-token: write) are configured. ' +
+          'Remove one authentication method before continuing.',
       );
       expect(mockGetIDToken).not.toHaveBeenCalled();
-
-      const [, , headers] = mockPost.mock.calls[0];
-      expect(headers.Authorization).toBe('Bearer static-ci-token');
-      expect(mockInfo).toHaveBeenCalledWith('Upload succeeded.');
+      expect(mockPost).not.toHaveBeenCalled();
+      expect(mockInfo).not.toHaveBeenCalledWith('Upload succeeded.');
     } finally {
       process.chdir(previousCwd);
     }
