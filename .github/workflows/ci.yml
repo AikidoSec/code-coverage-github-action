@@ -95,7 +95,7 @@ jobs:
           path: dist/
           if-no-files-found: error
 
-  test-action-oidc:
+  test-action:
     needs: [test, build]
     runs-on: open-source-releaser
     permissions:
