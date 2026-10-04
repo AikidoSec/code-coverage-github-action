@@ -1,3 +1,4 @@
+import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import * as glob from '@actions/glob';
 import { normalizePathSeparators, validateFilePath } from './paths.js';
@@ -24,8 +25,17 @@ export async function resolveInputFilePatterns(patterns) {
     }
 
     for (const match of matches.sort()) {
-      const relativePath = normalizePathSeparators(path.relative(cwd, match));
+      const resolvedPath = path.resolve(match);
+      const relativePath = normalizePathSeparators(path.relative(cwd, resolvedPath));
       validateFilePath(relativePath);
+
+      // followSymbolicLinks: false above only stops glob from descending into
+      // symlinked directories; it still returns a symlinked file as a match.
+      // Reject those so collectUploadPayload cannot read outside the workspace.
+      if ((await fs.lstat(resolvedPath)).isSymbolicLink()) {
+        throw new Error(`Invalid file path: "${pattern}" matched a symlink, which is not allowed`);
+      }
+
       resolvedPaths.push(relativePath);
     }
   }
