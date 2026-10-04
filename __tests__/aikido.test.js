@@ -1,4 +1,7 @@
 import { jest } from '@jest/globals';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { gunzipSync } from 'node:zlib';
 
 const mockPost = jest.fn();
@@ -107,10 +110,14 @@ describe('getAuthHeaders', () => {
 });
 
 describe('uploadCoverage', () => {
+  let eventDir;
+
   beforeEach(() => {
     process.env.GITHUB_REPOSITORY = 'org/repo';
     process.env.GITHUB_SHA = 'abc123';
     process.env.GITHUB_HEAD_REF = 'main';
+    delete process.env.GITHUB_EVENT_NAME;
+    delete process.env.GITHUB_EVENT_PATH;
     delete process.env.DEVELOPMENT;
     mockHttpClient.mockImplementation(() => ({
       post: mockPost,
@@ -119,6 +126,20 @@ describe('uploadCoverage', () => {
     mockGetIDToken.mockResolvedValue('oidc-jwt');
     mockSetSecret.mockReset();
   });
+
+  afterEach(async () => {
+    if (eventDir) {
+      await rm(eventDir, { recursive: true, force: true });
+      eventDir = undefined;
+    }
+  });
+
+  async function writeEventPayload(payload) {
+    eventDir = await mkdtemp(path.join(tmpdir(), 'aikido-event-'));
+    const eventPath = path.join(eventDir, 'event.json');
+    await writeFile(eventPath, JSON.stringify(payload));
+    process.env.GITHUB_EVENT_PATH = eventPath;
+  }
 
   it('posts files, repository_source_paths, and eof with a bearer token', async () => {
     const payload = samplePayload();
@@ -150,6 +171,39 @@ describe('uploadCoverage', () => {
       'Content-Type': 'application/json',
       Accept: 'application/json',
     });
+  });
+
+  /**
+   * Aikido's PR coverage check looks up snapshots by related_commit_sha = PR head.
+   * On pull_request, GITHUB_SHA is a temporary merge commit — uploading that SHA
+   * never attaches to the open check. Regression: commit_sha must be head.sha.
+   */
+  it('uploads PR head SHA so coverage attaches to the open PR check', async () => {
+    const mergeSha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const prHeadSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+
+    process.env.GITHUB_SHA = mergeSha;
+    process.env.GITHUB_EVENT_NAME = 'pull_request';
+    await writeEventPayload({
+      pull_request: { head: { sha: prHeadSha } },
+    });
+
+    await uploadCoverage(samplePayload());
+
+    const body = JSON.parse(mockPost.mock.calls[0][1]);
+    expect(body.commit_sha).toBe(prHeadSha);
+    expect(body.commit_sha).not.toBe(mergeSha);
+  });
+
+  it('uploads GITHUB_SHA on push events', async () => {
+    process.env.GITHUB_SHA = 'push-commit-sha';
+    process.env.GITHUB_EVENT_NAME = 'push';
+    await writeEventPayload({ after: 'push-commit-sha' });
+
+    await uploadCoverage(samplePayload());
+
+    const body = JSON.parse(mockPost.mock.calls[0][1]);
+    expect(body.commit_sha).toBe('push-commit-sha');
   });
 
   it('posts cobertura files when format is cobertura', async () => {
