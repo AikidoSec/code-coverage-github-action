@@ -1,5 +1,6 @@
 import * as core from '@actions/core';
 import { HttpClient, HttpCodes } from '@actions/http-client';
+import { readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 
 const REGION_BASE_URLS = {
@@ -8,6 +9,17 @@ const REGION_BASE_URLS = {
   au: 'https://bg.au.aikido.dev',
   'us-gov': 'https://bg.aikidogov.us',
 };
+
+// there isn't a env variable for the commit sha, so we need to parse the event file
+// github.event.pull_request.head.sha || github.sha
+export function getCommitSha() {
+  try {
+    const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+    return event.pull_request?.head?.sha || process.env.GITHUB_SHA;
+  } catch {
+    return process.env.GITHUB_SHA;
+  }
+}
 
 export function getBaseUrl(region = '') {
   if (process.env.DEVELOPMENT) {
@@ -77,7 +89,7 @@ export async function uploadCoverage(payload, region = '') {
 
   const body = {
     repo_name: process.env.GITHUB_REPOSITORY,
-    commit_sha: process.env.GITHUB_SHA,
+    commit_sha: getCommitSha(),
     branch_name: process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME,
     repository_source_paths: payload.repository_source_paths,
     eof: payload.eof,
