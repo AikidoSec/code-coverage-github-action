@@ -301,6 +301,39 @@ describe('main.js', () => {
       }
     });
 
+    it('expands a glob pattern with nested directories and uploads the matched reports', async () => {
+      const previousCwd = process.cwd();
+      process.chdir(tmpDir);
+
+      try {
+        await seedRepo(tmpDir, {
+          'src/a.js': 'a\n',
+          'src/b.js': 'b\n',
+        });
+        await fs.mkdir('packages/a/coverage', { recursive: true });
+        await fs.mkdir('packages/b/coverage', { recursive: true });
+        const lcov1 = 'TN:\nSF:src/a.js\nDA:1,5\nend_of_record\n';
+        const lcov2 = 'TN:\nSF:src/b.js\nDA:1,3\nend_of_record\n';
+        await fs.writeFile('packages/a/coverage/lcov.info', lcov1);
+        await fs.writeFile('packages/b/coverage/coevrage.lcov.info', lcov2);
+
+        setCoverageInput('packages/**/*lcov.info');
+
+        await run();
+
+        expect(mockSetFailed).not.toHaveBeenCalled();
+        expect(mockPost).toHaveBeenCalledTimes(1);
+        const [, rawBody] = mockPost.mock.calls[0];
+        const body = JSON.parse(rawBody);
+        expect(body.files).toHaveLength(2);
+        expect(decodeCoverageContent(body.files[0].content)).toBe(lcov1);
+        expect(decodeCoverageContent(body.files[1].content)).toBe(lcov2);
+        expect(mockInfo).toHaveBeenCalledWith('Upload succeeded.');
+      } finally {
+        process.chdir(previousCwd);
+      }
+    });
+
     it('fails when a glob pattern matches no files', async () => {
       const previousCwd = process.cwd();
       process.chdir(tmpDir);
