@@ -57,7 +57,7 @@ jobs:
           path: coverage
 
       - name: Upload coverage to Aikido
-        uses: AikidoSec/code-coverage-github-action@v1.1.0
+        uses: AikidoSec/code-coverage-github-action@x.x.x #use the latest stable version
         with:
           file-paths: coverage/lcov.info
 ```
@@ -66,7 +66,7 @@ jobs:
 
 ```yaml
 - name: Upload coverage to Aikido
-  uses: AikidoSec/code-coverage-github-action@v1.1.0
+  uses: AikidoSec/code-coverage-github-action@x.x.x #use the latest stable version
   with:
     file-paths: coverage/cobertura.xml
 ```
@@ -79,7 +79,7 @@ Glob patterns are also supported (for example `packages/*/coverage/lcov.info`).
 
 ```yaml
 - name: Upload coverage to Aikido
-  uses: AikidoSec/code-coverage-github-action@v1.1.0
+  uses: AikidoSec/code-coverage-github-action@x.x.x #use the latest stable version
   with:
     file-paths: |
       packages/*/coverage/lcov.info
@@ -141,7 +141,7 @@ jobs:
           merge-multiple: true
 
       - name: Upload coverage to Aikido
-        uses: AikidoSec/code-coverage-github-action@v1.1.0
+        uses: AikidoSec/code-coverage-github-action@x.x.x #use the latest stable version
         with:
           file-paths: |
             coverage-reports/packages/a/coverage/lcov.info
@@ -171,7 +171,7 @@ token audience.
 
 ```yaml
 - name: Upload coverage to Aikido
-  uses: AikidoSec/code-coverage-github-action@v1.1.0
+  uses: AikidoSec/code-coverage-github-action@x.x.x #use the latest stable version
   with:
     file-paths: coverage/lcov.info
     region: us
@@ -216,7 +216,7 @@ jobs:
           path: coverage
 
       - name: Upload coverage to Aikido
-        uses: AikidoSec/code-coverage-github-action@v1.1.0
+        uses: AikidoSec/code-coverage-github-action@x.x.x #use the latest stable version
         with:
           file-paths: coverage/lcov.info
 ```
