@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 const mockInfo = jest.fn();
+const mockDebug = jest.fn();
 const mockSetFailed = jest.fn();
 const mockWarning = jest.fn();
 const mockGetInput = jest.fn();
@@ -16,6 +17,7 @@ const originalGitHubWorkspace = process.env.GITHUB_WORKSPACE;
 
 jest.unstable_mockModule('@actions/core', () => ({
   info: mockInfo,
+  debug: mockDebug,
   setFailed: mockSetFailed,
   warning: mockWarning,
   getInput: mockGetInput,
@@ -66,6 +68,7 @@ describe('regression: PR coverage attaches via head SHA', () => {
     delete process.env.DEVELOPMENT;
 
     mockInfo.mockClear();
+    mockDebug.mockClear();
     mockSetFailed.mockClear();
     mockWarning.mockClear();
     mockGetInput.mockClear();

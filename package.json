@@ -1,6 +1,6 @@
 {
   "name": "code-coverage-github-action",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "private": true,
   "type": "module",
   "description": "GitHub Action that collects LCOV/Cobertura coverage reports and uploads them to Aikido with repository_source_paths and EOF metadata.",
