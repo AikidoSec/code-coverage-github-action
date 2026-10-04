@@ -5,6 +5,7 @@ import path from 'node:path';
 import { gunzipSync } from 'node:zlib';
 
 const mockInfo = jest.fn();
+const mockDebug = jest.fn();
 const mockSetFailed = jest.fn();
 const mockWarning = jest.fn();
 const mockGetInput = jest.fn();
@@ -21,6 +22,7 @@ function decodeCoverageContent(encoded) {
 
 jest.unstable_mockModule('@actions/core', () => ({
   info: mockInfo,
+  debug: mockDebug,
   setFailed: mockSetFailed,
   warning: mockWarning,
   getInput: mockGetInput,
@@ -66,6 +68,7 @@ describe('e2e multi-region OIDC and upload URLs', () => {
     delete process.env.DEVELOPMENT;
 
     mockInfo.mockClear();
+    mockDebug.mockClear();
     mockSetFailed.mockClear();
     mockWarning.mockClear();
     mockGetInput.mockClear();

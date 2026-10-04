@@ -75,13 +75,14 @@ jobs:
 
 Provide more than one path when separate packages or CI shards each emit their own report.
 Mixed LCOV and Cobertura inputs are supported; the backend merges them.
+Glob patterns are also supported (for example `packages/*/coverage/lcov.info`).
 
 ```yaml
 - name: Upload coverage to Aikido
   uses: AikidoSec/code-coverage-github-action@v1.1.0
   with:
     file-paths: |
-      packages/a/coverage/lcov.info
+      packages/*/coverage/lcov.info
       packages/b/coverage/cobertura.xml
 ```
 
@@ -159,7 +160,7 @@ the matrix test jobs.
 
 | Input           | Required | Default | Description                                                                                         |
 | --------------- | -------- | ------- | --------------------------------------------------------------------------------------------------- |
-| `file-paths`    | yes      | —       | Path(s) to coverage report(s). Newline-, space-, or comma-separated. Format detected from filename. |
+| `file-paths`    | yes      | —       | Path(s) or glob pattern(s) to coverage report(s). Newline-, space-, or comma-separated. Format detected from filename. |
 | `region`        | no       | `eu`    | Aikido region for upload and OIDC audience: `eu`, `us`, `au`, or `us-gov`.                          |
 | `fail-on-error` | no       | `true`  | Fail the action if reading or upload fails. Set to `false` to emit a warning instead.               |
 

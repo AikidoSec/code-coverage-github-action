@@ -1,5 +1,6 @@
 import * as core from '@actions/core';
 import { readInputs } from './inputs.js';
+import { resolveInputFilePatterns } from './resolveInputFilePatterns.js';
 import { collectUploadPayload } from './collectUploadPayload.js';
 import { uploadCoverage } from './aikido.js';
 
@@ -14,12 +15,14 @@ async function run() {
       throw new Error(`No code coverage file(s) provided. Specify at least one path.`);
     }
 
+    const filePaths = await resolveInputFilePatterns(inputs.filePaths);
+
     core.info(
-      `Found ${inputs.filePaths.length} coverage file(s) at path(s) \n\t${inputs.filePaths.join('\n\t')}`,
+      `Found ${filePaths.length} coverage file(s) at path(s) \n\t${filePaths.join('\n\t')}`,
     );
 
     core.info('Collecting repository_source_paths and EOF metadata...');
-    const payload = await collectUploadPayload(inputs.filePaths);
+    const payload = await collectUploadPayload(filePaths);
 
     core.info(
       `Uploading ${payload.files.length} coverage file(s) (repository_source_paths=${payload.repository_source_paths.length}, eof=${Object.keys(payload.eof).length}) for branch ${process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME} to Aikido...`,

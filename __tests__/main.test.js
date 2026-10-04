@@ -5,6 +5,7 @@ import path from 'node:path';
 import { gunzipSync } from 'node:zlib';
 
 const mockInfo = jest.fn();
+const mockDebug = jest.fn();
 const mockSetFailed = jest.fn();
 const mockWarning = jest.fn();
 const mockGetInput = jest.fn();
@@ -21,6 +22,7 @@ function decodeCoverageContent(encoded) {
 
 jest.unstable_mockModule('@actions/core', () => ({
   info: mockInfo,
+  debug: mockDebug,
   setFailed: mockSetFailed,
   warning: mockWarning,
   getInput: mockGetInput,
@@ -66,6 +68,7 @@ describe('main.js', () => {
     delete process.env.DEVELOPMENT;
 
     mockInfo.mockClear();
+    mockDebug.mockClear();
     mockSetFailed.mockClear();
     mockWarning.mockClear();
     mockGetInput.mockClear();
@@ -257,6 +260,92 @@ describe('main.js', () => {
         await run();
 
         expect(mockSetFailed).toHaveBeenCalledWith(expect.stringContaining('Invalid file path'));
+        expect(mockPost).not.toHaveBeenCalled();
+      } finally {
+        process.chdir(previousCwd);
+      }
+    });
+  });
+
+  describe('glob support', () => {
+    it('expands a glob pattern and uploads the matched reports', async () => {
+      const previousCwd = process.cwd();
+      process.chdir(tmpDir);
+
+      try {
+        await seedRepo(tmpDir, {
+          'src/a.js': 'a\n',
+          'src/b.js': 'b\n',
+        });
+        await fs.mkdir('packages/a/coverage', { recursive: true });
+        await fs.mkdir('packages/b/coverage', { recursive: true });
+        const lcov1 = 'TN:\nSF:src/a.js\nDA:1,5\nend_of_record\n';
+        const lcov2 = 'TN:\nSF:src/b.js\nDA:1,3\nend_of_record\n';
+        await fs.writeFile('packages/a/coverage/lcov.info', lcov1);
+        await fs.writeFile('packages/b/coverage/lcov.info', lcov2);
+
+        setCoverageInput('packages/*/coverage/lcov.info');
+
+        await run();
+
+        expect(mockSetFailed).not.toHaveBeenCalled();
+        expect(mockPost).toHaveBeenCalledTimes(1);
+        const [, rawBody] = mockPost.mock.calls[0];
+        const body = JSON.parse(rawBody);
+        expect(body.files).toHaveLength(2);
+        expect(decodeCoverageContent(body.files[0].content)).toBe(lcov1);
+        expect(decodeCoverageContent(body.files[1].content)).toBe(lcov2);
+        expect(mockInfo).toHaveBeenCalledWith('Upload succeeded.');
+      } finally {
+        process.chdir(previousCwd);
+      }
+    });
+
+    it('expands a glob pattern with nested directories and uploads the matched reports', async () => {
+      const previousCwd = process.cwd();
+      process.chdir(tmpDir);
+
+      try {
+        await seedRepo(tmpDir, {
+          'src/a.js': 'a\n',
+          'src/b.js': 'b\n',
+        });
+        await fs.mkdir('packages/a/coverage', { recursive: true });
+        await fs.mkdir('packages/b/coverage', { recursive: true });
+        const lcov1 = 'TN:\nSF:src/a.js\nDA:1,5\nend_of_record\n';
+        const lcov2 = 'TN:\nSF:src/b.js\nDA:1,3\nend_of_record\n';
+        await fs.writeFile('packages/a/coverage/lcov.info', lcov1);
+        await fs.writeFile('packages/b/coverage/coevrage.lcov.info', lcov2);
+
+        setCoverageInput('packages/**/*lcov.info');
+
+        await run();
+
+        expect(mockSetFailed).not.toHaveBeenCalled();
+        expect(mockPost).toHaveBeenCalledTimes(1);
+        const [, rawBody] = mockPost.mock.calls[0];
+        const body = JSON.parse(rawBody);
+        expect(body.files).toHaveLength(2);
+        expect(decodeCoverageContent(body.files[0].content)).toBe(lcov1);
+        expect(decodeCoverageContent(body.files[1].content)).toBe(lcov2);
+        expect(mockInfo).toHaveBeenCalledWith('Upload succeeded.');
+      } finally {
+        process.chdir(previousCwd);
+      }
+    });
+
+    it('fails when a glob pattern matches no files', async () => {
+      const previousCwd = process.cwd();
+      process.chdir(tmpDir);
+
+      try {
+        setCoverageInput('packages/*/coverage/lcov.info');
+
+        await run();
+
+        expect(mockSetFailed).toHaveBeenCalledWith(
+          expect.stringContaining('No file(s) found matching'),
+        );
         expect(mockPost).not.toHaveBeenCalled();
       } finally {
         process.chdir(previousCwd);

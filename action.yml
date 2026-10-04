@@ -7,7 +7,7 @@ branding:
 
 inputs:
   file-paths:
-    description: 'Path(s) to the code coverage report(s). Separate multiple entries with newlines. Format is detected from each filename (e.g. lcov.info, *.lcov, *cobertura*.xml).'
+    description: 'Path(s) or glob pattern(s) to the code coverage report(s). Separate multiple entries with newlines. Format is detected from each filename (e.g. lcov.info, *.lcov, *cobertura*.xml).'
     required: true
   region:
     description: 'Aikido region for upload and OIDC audience. One of: eu, us, au, us-gov.'

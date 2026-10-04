@@ -29,10 +29,12 @@
   ],
   "license": "MIT",
   "overrides": {
-    "undici@<=8.10.2": "8.10.2"
+    "undici@<=8.10.2": "8.10.2",
+    "brace-expansion@<=5.0.12": "5.0.12"
   },
   "dependencies": {
     "@actions/core": "3.0.1",
+    "@actions/glob": "0.7.0",
     "@actions/http-client": "4.0.1",
     "ignore": "7.0.8"
   },
