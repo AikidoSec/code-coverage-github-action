@@ -1,9 +1,7 @@
-import { promises as fs } from 'node:fs';
 import * as core from '@actions/core';
 import { readInputs } from './inputs.js';
-import { normalizeLcovSourcePaths } from './lcovPaths.js';
-import { resolveLcovFilePaths } from './resolveLcovFilePaths.js';
-import { mergeLcov } from './mergeLcov.js';
+import { resolveFilePaths } from './resolveFilePaths.js';
+import { collectUploadPayload } from './collectUploadPayload.js';
 import { uploadCoverage } from './aikido.js';
 
 async function run() {
@@ -13,32 +11,23 @@ async function run() {
     const inputs = readInputs();
     failOnError = inputs.failOnError;
 
-    if (inputs.lcovFilePaths.length === 0) {
-      throw new Error(`No lcov file(s) provided. Specify at least one path.`);
+    if (inputs.filePaths.length === 0) {
+      throw new Error(`No code coverage file(s) provided. Specify at least one path.`);
     }
 
-    const lcovFilePaths = await resolveLcovFilePaths(inputs.lcovFilePaths);
+    const filePaths = await resolveFilePaths(inputs.filePaths);
 
-    core.info(`Found ${lcovFilePaths.length} coverage file(s):`);
+    core.info(
+      `Found ${filePaths.length} coverage file(s) at path(s) \n\t${filePaths.join('\n\t')}`,
+    );
 
-    let codeCoverageFileContent = null;
+    core.info('Collecting repository_source_paths and EOF metadata...');
+    const payload = await collectUploadPayload(filePaths);
 
-    if (lcovFilePaths.length > 1) {
-      core.info(`Merging ${lcovFilePaths.length} coverage file(s) into a single file...`);
-      const mergedLcovFilePath = await mergeLcov(lcovFilePaths);
-      codeCoverageFileContent = await fs.readFile(mergedLcovFilePath, 'utf8');
-    } else {
-      const content = await fs.readFile(lcovFilePaths[0], 'utf8');
-      const repositoryRoot = process.env.GITHUB_WORKSPACE ?? process.cwd();
-      codeCoverageFileContent = normalizeLcovSourcePaths(content, repositoryRoot);
-    }
-
-    if (codeCoverageFileContent === null) {
-      throw new Error('Something went wrong while validating the coverage file(s)');
-    }
-
-    core.info('Uploading coverage report to Aikido...');
-    await uploadCoverage(codeCoverageFileContent);
+    core.info(
+      `Uploading ${payload.files.length} coverage file(s) (repository_source_paths=${payload.repository_source_paths.length}, eof=${Object.keys(payload.eof).length}) for branch ${process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME} to Aikido...`,
+    );
+    await uploadCoverage(payload, inputs.region);
 
     core.info(`Upload succeeded.`);
   } catch (error) {
@@ -53,5 +42,4 @@ async function run() {
 }
 
 export { run };
-
 run();

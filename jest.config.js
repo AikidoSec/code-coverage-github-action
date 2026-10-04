@@ -5,6 +5,6 @@ export default {
   clearMocks: true,
   collectCoverageFrom: ['src/**/*.js'],
   coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'json-summary'],
+  coverageReporters: ['text', 'lcov', 'json-summary', 'cobertura'],
   verbose: true,
 };

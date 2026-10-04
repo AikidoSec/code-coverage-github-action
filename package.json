@@ -3,14 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "GitHub Action that collects an LCOV code coverage report and uploads it to Aikido.",
+  "description": "GitHub Action that collects LCOV/Cobertura coverage reports and uploads them to Aikido with repository_source_paths and EOF metadata.",
   "main": "dist/index.js",
   "scripts": {
-    "build": "ncc build src/main.js -o dist --source-map --license licenses.txt",
+    "build": "ncc build src/main.js -o dist --minify --source-map --license licenses.txt",
     "lint": "eslint src __tests__",
     "format": "prettier --write \"**/*.js\"",
     "format:check": "prettier --check \"**/*.js\"",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "test:integration": "node --experimental-vm-modules node_modules/jest/bin/jest.js __tests__/integration",
     "local": "local-action . src/main.js .env",
     "all": "npm run format && npm run lint && npm run test && npm run build"
   },
@@ -23,17 +24,18 @@
     "aikido",
     "code-coverage",
     "lcov",
+    "cobertura",
     "security"
   ],
   "license": "MIT",
   "overrides": {
-    "undici@<=7.29.0": "7.29.0"
+    "undici@<=8.10.2": "8.10.2"
   },
   "dependencies": {
     "@actions/core": "3.0.1",
     "@actions/glob": "^0.7.0",
     "@actions/http-client": "4.0.1",
-    "ignore": "^7.0.8"
+    "ignore": "7.0.8"
   },
   "devDependencies": {
     "@github/local-action": "7.0.1",

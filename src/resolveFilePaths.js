@@ -45,13 +45,14 @@ async function matchPattern(pattern, cwd) {
         throw new Error(`Invalid file path: "${pattern}" matched a symlink, which is not allowed`);
       }
 
-      return resolvedPath;
+      // Return workspace-relative paths so downstream validation (no absolute paths) still works.
+      return relativePath;
     }),
   );
 }
 
 // Every pattern must match at least one file, so a typo fails loudly instead of silently dropping coverage.
-export async function resolveLcovFilePaths(patterns) {
+export async function resolveFilePaths(patterns) {
   const cwd = process.cwd();
   const resolvedPaths = [];
 

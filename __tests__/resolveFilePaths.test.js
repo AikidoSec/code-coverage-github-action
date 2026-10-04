@@ -1,14 +1,14 @@
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { resolveLcovFilePaths } from '../src/resolveLcovFilePaths.js';
+import { resolveFilePaths } from '../src/resolveFilePaths.js';
 
-describe('resolveLcovFilePaths', () => {
+describe('resolveFilePaths', () => {
   let tmpDir;
   let previousCwd;
 
   beforeEach(async () => {
-    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'resolve-lcov-'));
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'resolve-paths-'));
     previousCwd = process.cwd();
     process.chdir(tmpDir);
   });
@@ -21,9 +21,9 @@ describe('resolveLcovFilePaths', () => {
   it('resolves a literal path', async () => {
     await fs.writeFile('lcov.info', '');
 
-    const resolved = await resolveLcovFilePaths(['lcov.info']);
+    const resolved = await resolveFilePaths(['lcov.info']);
 
-    expect(resolved).toEqual([path.join(tmpDir, 'lcov.info')]);
+    expect(resolved).toEqual(['lcov.info']);
   });
 
   it('expands a glob pattern to every matching file', async () => {
@@ -32,13 +32,10 @@ describe('resolveLcovFilePaths', () => {
     await fs.writeFile('packages/a/coverage/lcov.info', '');
     await fs.writeFile('packages/b/coverage/lcov.info', '');
 
-    const resolved = await resolveLcovFilePaths(['packages/*/coverage/lcov.info']);
+    const resolved = await resolveFilePaths(['packages/*/coverage/lcov.info']);
 
     expect(resolved.sort()).toEqual(
-      [
-        path.join(tmpDir, 'packages/a/coverage/lcov.info'),
-        path.join(tmpDir, 'packages/b/coverage/lcov.info'),
-      ].sort(),
+      ['packages/a/coverage/lcov.info', 'packages/b/coverage/lcov.info'].sort(),
     );
   });
 
@@ -46,36 +43,36 @@ describe('resolveLcovFilePaths', () => {
     await fs.mkdir('coverage', { recursive: true });
     await fs.writeFile('coverage/lcov.info', '');
 
-    const resolved = await resolveLcovFilePaths(['coverage/lcov.info', 'coverage/*.info']);
+    const resolved = await resolveFilePaths(['coverage/lcov.info', 'coverage/*.info']);
 
-    expect(resolved).toEqual([path.join(tmpDir, 'coverage/lcov.info')]);
+    expect(resolved).toEqual(['coverage/lcov.info']);
   });
 
   it('throws when a pattern matches no files', async () => {
-    await expect(resolveLcovFilePaths(['packages/*/coverage/lcov.info'])).rejects.toThrow(
+    await expect(resolveFilePaths(['packages/*/coverage/lcov.info'])).rejects.toThrow(
       /No file\(s\) found matching "packages\/\*\/coverage\/lcov.info"/,
     );
   });
 
   it('rejects an absolute pattern', async () => {
-    await expect(resolveLcovFilePaths(['/etc/passwd'])).rejects.toThrow(
+    await expect(resolveFilePaths(['/etc/passwd'])).rejects.toThrow(
       /Invalid file path: absolute paths and "\.\." segments are not allowed/,
     );
   });
 
   it('rejects a pattern containing ".." segments', async () => {
-    await expect(resolveLcovFilePaths(['../etc/passwd'])).rejects.toThrow(
+    await expect(resolveFilePaths(['../etc/passwd'])).rejects.toThrow(
       /Invalid file path: absolute paths and "\.\." segments are not allowed/,
     );
   });
 
   it('rejects a matched file that is a symlink outside the workspace', async () => {
-    const secret = await fs.mkdtemp(path.join(os.tmpdir(), 'resolve-lcov-secret-'));
+    const secret = await fs.mkdtemp(path.join(os.tmpdir(), 'resolve-paths-secret-'));
     await fs.writeFile(path.join(secret, 'passwd'), 'root:x:0:0');
     await fs.symlink(path.join(secret, 'passwd'), 'coverage.info');
 
     try {
-      await expect(resolveLcovFilePaths(['coverage.info'])).rejects.toThrow(
+      await expect(resolveFilePaths(['coverage.info'])).rejects.toThrow(
         /matched a symlink, which is not allowed/,
       );
     } finally {
