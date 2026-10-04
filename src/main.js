@@ -1,6 +1,6 @@
 import * as core from '@actions/core';
 import { readInputs } from './inputs.js';
-import { resolveFilePaths } from './resolveFilePaths.js';
+import { resolveInputFilePatterns } from './resolveInputFilePatterns.js';
 import { collectUploadPayload } from './collectUploadPayload.js';
 import { uploadCoverage } from './aikido.js';
 
@@ -15,7 +15,7 @@ async function run() {
       throw new Error(`No code coverage file(s) provided. Specify at least one path.`);
     }
 
-    const filePaths = await resolveFilePaths(inputs.filePaths);
+    const filePaths = await resolveInputFilePatterns(inputs.filePaths);
 
     core.info(
       `Found ${filePaths.length} coverage file(s) at path(s) \n\t${filePaths.join('\n\t')}`,
