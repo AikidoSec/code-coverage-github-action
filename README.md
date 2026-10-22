@@ -156,6 +156,85 @@ and paths to match your repository layout.
 Grant `id-token: write` on the job that runs this action (`upload-coverage` above), not on
 the matrix test jobs.
 
+### Monorepo that tests only changed paths
+
+Run every package and upload every report on each run. Each upload replaces coverage for that repository and branch. Aikido does not merge it with the previous upload. If you upload only the packages that ran, the skipped packages are removed from Aikido until a later upload includes them again.
+
+Skipping unchanged packages is an optimization. Keep one artifact per package. When a package changes, run its tests and publish that report. When it does not change, download the artifact from the last successful run and publish the same report again. The upload job then downloads every artifact from the current run and passes every path to this action.
+
+Run coverage for every package once on the main branch before you start skipping unchanged packages. The upload step expects a report for every package, so the job fails until those artifacts exist on main.
+
+```yaml
+name: Coverage
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [web, api]
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Did this app change?
+        id: changes
+        run: |
+          if git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" | grep -q "^apps/${{ matrix.app }}/"; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Test the app that changed
+        if: steps.changes.outputs.changed == 'true'
+        run: npm test --workspace=apps/${{ matrix.app }} -- --coverage
+
+      - name: Reuse the latest available report when nothing changed
+        if: steps.changes.outputs.changed == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "apps/${{ matrix.app }}/coverage"
+          run_id=$(gh run list --workflow coverage.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          gh run download "$run_id" --name "coverage-${{ matrix.app }}" --dir "apps/${{ matrix.app }}/coverage"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.app }}
+          path: apps/${{ matrix.app }}/coverage/lcov.info
+
+  upload-coverage:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          path: coverage-reports
+
+      - uses: AikidoSec/code-coverage-github-action@latest
+        with:
+          file-paths: |
+            coverage-reports/coverage-web/lcov.info
+            coverage-reports/coverage-api/lcov.info
+```
+
+Name the workflow file `coverage.yml`. Each test job either creates a new `lcov.info` or downloads the one saved on main, and the upload job sends both. On a pull request, download the saved reports from `main`.
+
 ## Inputs
 
 | Input           | Required | Default | Description                                                                                         |
